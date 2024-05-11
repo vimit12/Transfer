@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>591</width>
-    <height>528</height>
+    <width>593</width>
+    <height>536</height>
    </rect>
   </property>
   <property name="windowTitle">
@@ -44,7 +44,7 @@
       <x>20</x>
       <y>120</y>
       <width>551</width>
-      <height>261</height>
+      <height>271</height>
      </rect>
     </property>
     <property name="font">
@@ -67,19 +67,6 @@
     <property name="checkable">
      <bool>false</bool>
     </property>
-    <widget class="QPushButton" name="pushButton_2">
-     <property name="geometry">
-      <rect>
-       <x>440</x>
-       <y>160</y>
-       <width>101</width>
-       <height>41</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Generate</string>
-     </property>
-    </widget>
     <widget class="QPushButton" name="pushButton">
      <property name="geometry">
       <rect>
@@ -103,9 +90,9 @@
     <widget class="QGroupBox" name="outputFileBox">
      <property name="geometry">
       <rect>
-       <x>20</x>
-       <y>140</y>
-       <width>411</width>
+       <x>10</x>
+       <y>160</y>
+       <width>551</width>
        <height>61</height>
       </rect>
      </property>
@@ -123,12 +110,25 @@
        <rect>
         <x>10</x>
         <y>20</y>
-        <width>381</width>
+        <width>411</width>
         <height>31</height>
        </rect>
       </property>
       <property name="plainText">
        <string>Sample.xlsx</string>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="generateButton">
+      <property name="geometry">
+       <rect>
+        <x>440</x>
+        <y>20</y>
+        <width>91</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Generate</string>
       </property>
      </widget>
     </widget>
@@ -168,7 +168,7 @@
      <property name="geometry">
       <rect>
        <x>20</x>
-       <y>210</y>
+       <y>230</y>
        <width>521</width>
        <height>20</height>
       </rect>
@@ -328,7 +328,7 @@ border-radius: 5px;</string>
     <property name="geometry">
      <rect>
       <x>20</x>
-      <y>400</y>
+      <y>410</y>
       <width>551</width>
       <height>80</height>
      </rect>
@@ -347,7 +347,7 @@ border-radius: 5px;</string>
      </property>
      <property name="font">
       <font>
-       <pointsize>11</pointsize>
+       <pointsize>10</pointsize>
        <bold>false</bold>
       </font>
      </property>

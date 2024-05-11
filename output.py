@@ -19,17 +19,18 @@ from PyQt6.QtCore import Qt, QDate
 import calendar
 
 HOLIDAY_LIST = [
+                    "01-01-2024",
+                    "15-01-2024",
                     "26-01-2024",
-                    "07-03-2024",
-                    "22-03-2024",
-                    "10-04-2024",
+                    "25-03-2024",
+                    "29-03-2024",
+                    "09-04-2024",
+                    "11-04-2024",
                     "01-05-2024",
-                    "04-06-2024",
-                    "28-06-2024",
+                    "13-05-2024",
                     "15-08-2024",
-                    "18-09-2024",
                     "02-10-2024",
-                    "24-10-2024",
+                    "31-10-2024",
                     "25-12-2024"
                 ]
             
@@ -304,16 +305,7 @@ def generate_excel(month, year, output_file_name, selected_row):
             else:
                 wb_style.save(excel_file_path)
 
-        return "Report Generated Successfully."
-        # # now save it to minio
-        # bucket_name = "attendance"
-        # file_path = excel_file_path
-        # object_name = (_data.get("accounts") + "/" + str(year) + f"/{month_name}" + f"/{file_path}")
-        # minio_db.minio_push(bucket_name, file_path, object_name)
-        #
-        # presigned_url = minio_db.generate_unlimited_presigned_url(bucket_name=bucket_name, object_name=object_name)
-        # os.remove(excel_file_path)
-        # response_data.update({"message": "Exported", "presigned_url": presigned_url, "status_code": HTTPStatus.OK, })
+        return [200, "Report Generated Successfully."]
 
     except Exception as e:
         # Log the error
@@ -322,14 +314,15 @@ def generate_excel(month, year, output_file_name, selected_row):
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
 
-        return str(e)
+        return [500, str(e)]
 
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(591, 500)
-        MainWindow.setFixedSize(591, 500)
+        MainWindow.resize(591, 520)
+        MainWindow.setFixedSize(591, 520)
+
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
         self.centralwidget.setObjectName("centralwidget")
 
@@ -338,19 +331,8 @@ class Ui_MainWindow(object):
         font.setPointSize(12)
         font.setBold(True)
 
-        self.error_label = QtWidgets.QLabel(parent=self.centralwidget)
-        self.error_label.setGeometry(QtCore.QRect(110, 170, 351, 16))
-        font = QtGui.QFont()
-        font.setBold(False)
-
-        self.error_label.setFont(font)
-        self.error_label.setStyleSheet("color: red;")
-        self.error_label.setText("")
-        self.error_label.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
-        self.error_label.setObjectName("error_label")
-
         self.groupBox = QtWidgets.QGroupBox(parent=self.centralwidget)
-        self.groupBox.setGeometry(QtCore.QRect(20, 120, 551, 261))
+        self.groupBox.setGeometry(QtCore.QRect(10, 120, 551, 271))
         font = QtGui.QFont()
         font.setBold(False)
         self.groupBox.setFont(font)
@@ -359,52 +341,65 @@ class Ui_MainWindow(object):
         self.groupBox.setFlat(True)
         self.groupBox.setCheckable(False)
         self.groupBox.setObjectName("groupBox")
+#         self.groupBox.setStyleSheet("border-style: solid;\n"
+# "border-width: 1px;\n"
+# "border-color: rgb(17, 131, 112);\n"
+# "border-radius: 5px;")
 
-
-        self.generateButton = QtWidgets.QPushButton(parent=self.groupBox)
-        self.generateButton.setGeometry(QtCore.QRect(440, 160, 101, 41))
-        self.generateButton.setObjectName("generateButton")
-
-        self.uploadButton = QtWidgets.QPushButton(parent=self.groupBox)
-        self.uploadButton.setGeometry(QtCore.QRect(440, 40, 101, 41))
-        self.uploadButton.setToolTip("")
-        icon = QtGui.QIcon.fromTheme("folder")
-        self.uploadButton.setIcon(icon)
-        self.uploadButton.setObjectName("uploadButton")
-
-        self.outputFileBox = QtWidgets.QGroupBox(parent=self.groupBox)
-        self.outputFileBox.setGeometry(QtCore.QRect(20, 140, 411, 61))
-        self.outputFileBox.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.outputFileBox.setObjectName("outputFileBox")
-        self.outputFileText = QtWidgets.QPlainTextEdit(parent=self.outputFileBox)
-        self.outputFileText.setEnabled(True)
-        self.outputFileText.setGeometry(QtCore.QRect(10, 20, 381, 31))
-        self.outputFileText.setObjectName("outputFileText")
-
+        ################################### Output File Section #####################################################
         self.fileInputBox = QtWidgets.QGroupBox(parent=self.groupBox)
-        self.fileInputBox.setGeometry(QtCore.QRect(20, 20, 411, 61))
+        self.fileInputBox.setGeometry(QtCore.QRect(10, 20, 541, 61))
         self.fileInputBox.setAlignment(QtCore.Qt.AlignmentFlag.AlignCenter)
         self.fileInputBox.setObjectName("fileInputBox")
         font.setPointSize(10)
 
         self.inputFileText = QtWidgets.QPlainTextEdit(parent=self.fileInputBox)
         self.inputFileText.setEnabled(True)
-        self.inputFileText.setGeometry(QtCore.QRect(10, 20, 381, 31))
+        self.inputFileText.setGeometry(QtCore.QRect(10, 20, 421, 31))
         self.inputFileText.setReadOnly(True)
         self.inputFileText.setObjectName("inputFileText")
         self.inputFileText.setFont(font)
 
+        self.uploadButton = QtWidgets.QPushButton(parent=self.fileInputBox)
+        self.uploadButton.setGeometry(QtCore.QRect(440, 20, 91, 31))
+        self.uploadButton.setToolTip("")
+        icon = QtGui.QIcon.fromTheme("folder")
+        self.uploadButton.setIcon(icon)
+        self.uploadButton.setObjectName("uploadButton")
+        ####################################################### END ############################################################
+
+        ################################### Output File Section #####################################################
+        self.outputFileBox = QtWidgets.QGroupBox(parent=self.groupBox)
+        self.outputFileBox.setGeometry(QtCore.QRect(10, 160, 541, 61))
+        self.outputFileBox.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.outputFileBox.setObjectName("outputFileBox")
+
+        self.outputFileText = QtWidgets.QPlainTextEdit(parent=self.outputFileBox)
+        self.outputFileText.setEnabled(True)
+        self.outputFileText.setGeometry(QtCore.QRect(10, 20, 405, 31))
+        self.outputFileText.setObjectName("outputFileText")
+
+        self.generateButton = QtWidgets.QPushButton(parent=self.outputFileBox)
+        self.generateButton.setGeometry(QtCore.QRect(440, 20, 91, 31))
+        self.generateButton.setObjectName("generateButton")
+
+        ####################################################### END ############################################################
+
         self.error_msg = QtWidgets.QLabel(parent=self.groupBox)
-        self.error_msg.setGeometry(QtCore.QRect(20, 210, 521, 20))
+        self.error_msg.setGeometry(QtCore.QRect(20, 230, 521, 20))
         self.error_msg.setText("")
         self.error_msg.setObjectName("error_msg")
         self.error_msg.setStyleSheet("color:red;")
+        self.error_msg.setFont(font)
 
-        self.monthLabel = QLabel("Select Month:", self.groupBox)
-        self.monthLabel.setGeometry(QtCore.QRect(25, 70, 161, 41))
-        self.monthLabel.setFont(font)
-        self.monthBox = QtWidgets.QComboBox(parent=self.groupBox)
-        self.monthBox.setGeometry(QtCore.QRect(20, 90, 341, 41))
+        ################################### Selection of Year and Month box #####################################################
+        self.year_month_box = QtWidgets.QGroupBox(parent=self.groupBox)
+        self.year_month_box.setGeometry(QtCore.QRect(10, 90, 541, 71))
+        self.year_month_box.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.year_month_box.setObjectName("year_month_box")
+
+        self.monthBox = QtWidgets.QComboBox(parent=self.year_month_box)
+        self.monthBox.setGeometry(QtCore.QRect(10, 20, 341, 40))
         self.monthBox.setEditable(True)
         self.monthBox.setObjectName("monthBox")
         months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October",
@@ -414,12 +409,8 @@ class Ui_MainWindow(object):
         currentMonthIndex = QDate.currentDate().month() - 1  # Month indices start from 0
         self.monthBox.setCurrentIndex(currentMonthIndex)
 
-        self.yearLabel = QLabel("Select Year:", self.groupBox)
-        self.yearLabel.setGeometry(QtCore.QRect(385, 70, 161, 41))
-        self.yearLabel.setFont(font)
-
-        self.yearBox = QtWidgets.QComboBox(parent=self.groupBox)
-        self.yearBox.setGeometry(QtCore.QRect(380, 90, 161, 41))
+        self.yearBox = QtWidgets.QComboBox(parent=self.year_month_box)
+        self.yearBox.setGeometry(QtCore.QRect(370, 20, 150, 40))
         self.yearBox.setEditable(True)
         self.yearBox.setObjectName("yearBox")
         years = [str(year) for year in range(2022, 2051)]  # Years from 2022 to 2050
@@ -430,8 +421,12 @@ class Ui_MainWindow(object):
         if yearIndex != -1:
             self.yearBox.setCurrentIndex(yearIndex)
         
+        ####################################################### END ############################################################
+
+        ##################################################### Category box #####################################################
+        
         self.categoryBox = QtWidgets.QGroupBox(parent=self.centralwidget)
-        self.categoryBox.setGeometry(QtCore.QRect(20, 20, 551, 80))
+        self.categoryBox.setGeometry(QtCore.QRect(20, 20, 541, 80))
         self.categoryBox.setStyleSheet("border-style: solid;\n"
 "border-width: 1px;\n"
 "border-color: rgb(17, 131, 112);\n"
@@ -446,8 +441,10 @@ class Ui_MainWindow(object):
         self.categoryInput.setObjectName("categoryInput")
 
         self.selectButton = QtWidgets.QPushButton(parent=self.categoryBox)
-        self.selectButton.setGeometry(QtCore.QRect(400, 30, 141, 31))
+        self.selectButton.setGeometry(QtCore.QRect(400, 30, 130, 31))
         self.selectButton.setObjectName("selectButton")
+
+        ####################################################### END ############################################################
 
         MainWindow.setCentralWidget(self.centralwidget)
         self.statusbar = QtWidgets.QStatusBar(parent=MainWindow)
@@ -460,13 +457,13 @@ class Ui_MainWindow(object):
             "background-color: #a9d2d9; color: black; border-radius: 5px; border: 2px solid #a9d2d9;")
 
         self.holidayBox = QtWidgets.QGroupBox(parent=self.centralwidget)
-        self.holidayBox.setGeometry(QtCore.QRect(20, 360, 551, 80))
+        self.holidayBox.setGeometry(QtCore.QRect(20, 410, 551, 80))
         self.holidayBox.setObjectName("holidayBox")
 
         self.holidayLabel = QtWidgets.QLabel(parent=self.holidayBox)
         self.holidayLabel.setGeometry(QtCore.QRect(10, 60, 421, 20))
         font = QtGui.QFont()
-        font.setPointSize(11)
+        font.setPointSize(10)
         font.setBold(False)
         self.holidayLabel.setFont(font)
         self.holidayLabel.setStyleSheet("color:red;")
@@ -494,6 +491,7 @@ class Ui_MainWindow(object):
         self.generateButton.setText(_translate("MainWindow", "Generate"))
         self.uploadButton.setText(_translate("MainWindow", "Upload"))
         self.outputFileBox.setTitle(_translate("MainWindow", "Enter Output File name"))
+        self.year_month_box.setTitle(_translate("MainWindow", "Select Month and Year :"))
         self.outputFileText.setPlainText(_translate("MainWindow", "Sample.xlsx"))
         self.fileInputBox.setTitle(_translate("MainWindow", "File Input"))
         self.error_msg.setText(_translate("MainWindow", ""))
@@ -547,6 +545,7 @@ class MainWindow(QMainWindow):
                 cleaned_dict[clean_key] = value
             cleaned_list.append(cleaned_dict)
         return cleaned_list
+    
     def generateReport(self):
         # Implement report generation logic here
         self.selected_month = self.ui.monthBox.currentText()
@@ -554,10 +553,15 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            response = generate_excel(self.selected_month, self.selected_year, self.ui.outputFileText.toPlainText(), self.df)
-            print("SUCCESS")
+            status, response = generate_excel(self.selected_month, self.selected_year, self.ui.outputFileText.toPlainText(), self.df)
+            if status ==  200:
+                self.ui.error_msg.setText(response)
+                self.ui.error_msg.setStyleSheet("color:green;")
+            else:
+                self.ui.error_msg.setText(response)
+                self.ui.error_msg.setStyleSheet("color:red;")
         else:
-            self.ui.error_msg.setText("Please excel raw excel file to proceed")
+            self.ui.error_msg.setText("Please provide raw excel file as an input.")
 
         print("DOne")
 
