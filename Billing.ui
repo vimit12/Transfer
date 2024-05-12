@@ -6,12 +6,12 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>593</width>
+    <width>620</width>
     <height>536</height>
    </rect>
   </property>
   <property name="windowTitle">
-   <string>MainWindow</string>
+   <string>Generate Report</string>
   </property>
   <widget class="QWidget" name="centralwidget">
    <widget class="QLabel" name="error_label">
@@ -43,7 +43,7 @@
      <rect>
       <x>20</x>
       <y>120</y>
-      <width>551</width>
+      <width>581</width>
       <height>271</height>
      </rect>
     </property>
@@ -67,26 +67,6 @@
     <property name="checkable">
      <bool>false</bool>
     </property>
-    <widget class="QPushButton" name="pushButton">
-     <property name="geometry">
-      <rect>
-       <x>440</x>
-       <y>40</y>
-       <width>101</width>
-       <height>41</height>
-      </rect>
-     </property>
-     <property name="toolTip">
-      <string/>
-     </property>
-     <property name="text">
-      <string>Upload</string>
-     </property>
-     <property name="icon">
-      <iconset theme="folder">
-       <normaloff>.</normaloff>.</iconset>
-     </property>
-    </widget>
     <widget class="QGroupBox" name="outputFileBox">
      <property name="geometry">
       <rect>
@@ -135,9 +115,9 @@
     <widget class="QGroupBox" name="fileInputBox">
      <property name="geometry">
       <rect>
-       <x>20</x>
+       <x>10</x>
        <y>20</y>
-       <width>411</width>
+       <width>551</width>
        <height>61</height>
       </rect>
      </property>
@@ -155,12 +135,32 @@
        <rect>
         <x>10</x>
         <y>20</y>
-        <width>381</width>
+        <width>441</width>
         <height>31</height>
        </rect>
       </property>
       <property name="readOnly">
        <bool>false</bool>
+      </property>
+     </widget>
+     <widget class="QPushButton" name="pushButton">
+      <property name="geometry">
+       <rect>
+        <x>440</x>
+        <y>20</y>
+        <width>91</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="toolTip">
+       <string/>
+      </property>
+      <property name="text">
+       <string>Upload</string>
+      </property>
+      <property name="icon">
+       <iconset theme="folder">
+        <normaloff>.</normaloff>.</iconset>
       </property>
      </widget>
     </widget>
@@ -180,97 +180,110 @@
       <string>Sample</string>
      </property>
     </widget>
-    <widget class="QComboBox" name="monthBox">
+    <widget class="QGroupBox" name="groupBox_2">
      <property name="geometry">
       <rect>
-       <x>20</x>
+       <x>10</x>
        <y>90</y>
-       <width>341</width>
-       <height>41</height>
+       <width>551</width>
+       <height>61</height>
       </rect>
      </property>
-     <property name="editable">
-      <bool>true</bool>
+     <property name="title">
+      <string>GroupBox</string>
      </property>
-     <property name="currentText">
-      <string>January</string>
-     </property>
-     <item>
-      <property name="text">
+     <widget class="QComboBox" name="monthBox">
+      <property name="geometry">
+       <rect>
+        <x>10</x>
+        <y>20</y>
+        <width>341</width>
+        <height>31</height>
+       </rect>
+      </property>
+      <property name="editable">
+       <bool>true</bool>
+      </property>
+      <property name="currentText">
        <string>January</string>
       </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>Febuary</string>
+      <item>
+       <property name="text">
+        <string>January</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>Febuary</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>March</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>April</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>May</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>June</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>July</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>August</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>September</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>October</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>November</string>
+       </property>
+      </item>
+      <item>
+       <property name="text">
+        <string>December</string>
+       </property>
+      </item>
+     </widget>
+     <widget class="QComboBox" name="yearBox">
+      <property name="geometry">
+       <rect>
+        <x>370</x>
+        <y>20</y>
+        <width>161</width>
+        <height>31</height>
+       </rect>
       </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>March</string>
+      <property name="editable">
+       <bool>true</bool>
       </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>April</string>
+      <property name="currentText">
+       <string>Select Year</string>
       </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>May</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>June</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>July</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>August</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>September</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>October</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>November</string>
-      </property>
-     </item>
-     <item>
-      <property name="text">
-       <string>December</string>
-      </property>
-     </item>
-    </widget>
-    <widget class="QComboBox" name="yearBox">
-     <property name="geometry">
-      <rect>
-       <x>380</x>
-       <y>90</y>
-       <width>161</width>
-       <height>41</height>
-      </rect>
-     </property>
-     <property name="editable">
-      <bool>true</bool>
-     </property>
-     <property name="currentText">
-      <string>Select Year</string>
-     </property>
+     </widget>
     </widget>
    </widget>
    <widget class="QGroupBox" name="categoryBox">
