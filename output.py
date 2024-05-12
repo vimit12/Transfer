@@ -13,6 +13,7 @@ import pandas as pd
 import xlsxwriter
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.worksheet.merge import MergeCell, MergeCells
 from PyQt6 import QtCore, QtGui, QtWidgets
 import sys
 from PyQt6.QtWidgets import QApplication, QMainWindow, QFileDialog, QLabel, QPushButton, QMessageBox # type: ignore
@@ -22,7 +23,7 @@ from PyQt6.QtGui import QIcon
 import itertools
 from collections import Counter
 
-HOLIDAY_LIST = [
+HOLIDAY_LIST_2024 = [
                     "01-01-2024",
                     "15-01-2024",
                     "26-01-2024",
@@ -106,8 +107,9 @@ def get_month_details(month_name, year):
 def generate_excel(month, year, output_file_name, selected_row):
     sheets_name = []
     try:
+        user_data = list()
         month_name = month
-        holiday_list = HOLIDAY_LIST
+        holiday_list = HOLIDAY_LIST_2024
 
         year = int(year)
         month_details, month_number = get_month_details(month_name, year)
@@ -118,7 +120,6 @@ def generate_excel(month, year, output_file_name, selected_row):
         print("month_day_holiday_list ===>", month_day_holiday_list)
         df_sheets = dict()
         excel_file_path = output_file_name
-        # excel_file_path = "leave_management.xlsx"
         for new_data in selected_row:
             billable_days = 0
             weekends = 0
@@ -206,9 +207,15 @@ def generate_excel(month, year, output_file_name, selected_row):
 
             # print(df)
             df_sheets.update({sheet_name: df})
+            user_data.append({"Name": sheet_name, 
+                            #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
+                              "Billable Time (Hours)": (total_working_days-leave_taken) * 8 ,
+                            #    "Weekends": weekends, "Public Holidays": public_holiday,
+                              "Total Number of Billable Days": total_working_days, "Service Credit Pool Days": leave_taken})
         else:
             # Create a Pandas Excel writer using XlsxWriter as the engine
             with pd.ExcelWriter(excel_file_path, engine="xlsxwriter") as writer:
+
                 for key, value in df_sheets.items():
                     # Write each dataframe to a different sheet
                     value.to_excel(writer, sheet_name=key, index=False)
@@ -309,7 +316,7 @@ def generate_excel(month, year, output_file_name, selected_row):
             else:
                 wb_style.save(excel_file_path)
 
-        return [200, "Report Generated Successfully."]
+        return [200, "Report Generated Successfully.", user_data]
 
     except Exception as e:
         # Log the error
@@ -318,7 +325,7 @@ def generate_excel(month, year, output_file_name, selected_row):
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
 
-        return [500, str(e)]
+        return [500, str(e), None]
 
 
 class Ui_MainWindow(object):
@@ -585,6 +592,125 @@ class MainWindow(QMainWindow):
         else:
             self.ui.outputFileText.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: green;\nborder-radius: 5px;")
 
+    def categorised_data(self, category, user_data):
+        # Initialize an empty dictionary to store filtered data
+        filtered_data_dict = {}
+
+        # Iterate through each key-value pair in category
+        for key, names_list in category.items():
+            filtered_data = []
+            total_hours = 0
+            total_billable_days = 0
+            total_service_credit_days = 0
+            for name in names_list:
+                # Filter data based on the "Name" key in the data list
+                filtered = [item for item in user_data if item['Name'] == name]
+                filtered_data.extend(filtered)
+                # Calculate totals
+                for item in filtered:
+                    total_hours += item['Billable Time (Hours)']
+                    total_billable_days += item['Total Number of Billable Days']
+                    total_service_credit_days += item['Service Credit Pool Days']
+            # Add the total entry to the filtered data
+            total_entry = {
+                'Name': 'Total',
+                'Billable Time (Hours)': total_hours,
+                'Total Number of Billable Days': total_billable_days,
+                'Service Credit Pool Days': total_service_credit_days
+            }
+            filtered_data.append(total_entry)
+            filtered_data_dict[key] = filtered_data
+        
+        return filtered_data_dict
+
+    def add_category_data(self, user_data):
+        category = {
+                "AWS DevOps Engineers": [
+                    "Ashish Mittal",
+                    "Chander Thumma",
+                    "Ganesh Baliram Sultane",
+                    "Hakeem Naseer Ahmed",
+                    "Jyothi Madamanchi",
+                    "Manoj Kumar Karoju",
+                    "Mukesh Kumar Manjhi",
+                    "Prudhviraju Vysyaraju",
+                    "P Sunil Kumar",
+                    "Sabarinath Shanmugasundaram",
+                    "Satish Gunda",
+                    "Sridhar Achary Nagavelli",
+                    "Sumitra Bhagirathi Dalai",
+                    "Suneel Kumar Komandla",
+                    "Suresh Kumar Sekar",
+                    "Venkataramana Budisetti",
+                    "Vimit Vimit"
+                ],
+                "AWS Testing Engineer": [
+                    "Vamshi Venkat Rajesh Machiraju",
+                    "Deepa Kesa"
+                ],
+                "PMO Role": [
+                    "Venu Madhav Reddy"
+                ],
+                "Scrum Master": [
+                    "Madhuri Chavan"
+                ]
+            }
+        
+        filtered_data_dict =self.categorised_data(category, user_data)
+
+        wb = load_workbook(self.file_name)
+        sheet = wb.create_sheet("AWS Cloud Platform Engineering", 0)
+
+        # Set tab color for the sheet
+        tab_color = "34b1eb"  # Hex color code (orange)
+        sheet.sheet_properties.tabColor = tab_color
+
+        # Write the header row starting from B4 and color the header cells
+        header = list(user_data[0].keys())
+        for col_index, value in enumerate(header, start=2):  # Start from column B (index 2)
+            cell = sheet.cell(row=4, column=col_index, value=value)
+            # Apply font styling (bold) and fill color to the cell
+            cell.font = Font(bold=True)
+            
+            cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")
+            # Set column width based on header column
+            if value == "Name":
+                sheet.column_dimensions[cell.column_letter].width = 30
+            else:
+                sheet.column_dimensions[cell.column_letter].width = 15
+                cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+            # Apply text wrapping and center align the text
+            cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        ######################################### ITERATION 1 ##########################################################
+        # Merge cells B3 to E3 and add formatted text
+
+        key_role = list(filtered_data_dict.keys())[0]
+        merge_range = 'B3:E3'
+        sheet.merge_cells(merge_range)
+        merged_cell = sheet.cell(row=3, column=2, value=key_role)
+        merged_cell.font = Font(bold=True)
+        merged_cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+        # merged_cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")  # Orange color
+        merged_cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # Write data rows starting from B5
+        for row_index, row_data in enumerate(filtered_data_dict[key_role], start=5):
+            for col_index, value in enumerate(row_data.values(), start=2):  # Start from column B (index 2)
+                cell = sheet.cell(row=row_index, column=col_index, value=value)
+                # Apply text wrapping and center align the text
+                if col_index !=  2:
+                    cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+                # Apply border to the cell
+                cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+                if row_data["Name"] == "Total":
+                    cell.font = Font(bold=True)
+                    cell.fill = PatternFill(start_color="dcdfe0", end_color="dcdfe0", fill_type="solid")
+
+
+
+        wb.save(self.file_name)
 
     def generateReport(self):
         self.ui.error_msg.setText("")
@@ -600,10 +726,11 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            status, response = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df)
+            status, response, user_data = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df)
             if status ==  200:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:green;")
+                self.add_category_data(user_data)
             else:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:red;")
