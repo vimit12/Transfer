@@ -22,6 +22,9 @@ import calendar
 from PyQt6.QtGui import QIcon
 import itertools
 from collections import Counter
+from dateutil.parser import parse
+
+from pandas._libs.tslibs.timestamps import Timestamp
 
 HOLIDAY_LIST_2024 = [
                     "01-01-2024",
@@ -104,20 +107,20 @@ def get_month_details(month_name, year):
     return month_details, month_number
 
 #add validation of month, like if use data is for april and month is may
-def generate_excel(month, year, output_file_name, selected_row):
+def generate_excel(month, year, output_file_name, selected_row, holiday_list):
     sheets_name = []
     try:
         user_data = list()
         month_name = month
-        holiday_list = HOLIDAY_LIST_2024
+        holiday_list = holiday_list
 
         year = int(year)
         month_details, month_number = get_month_details(month_name, year)
         month_number = f"{month_number:02}" if month_number < 10 else month_number
         month_holiday_list = [x for x in holiday_list if re.findall(f"\d+-{month_number}-\d+", x)]
-        print("month_holiday_list ===>", month_holiday_list)
+        # print("month_holiday_list ===>", month_holiday_list)
         month_day_holiday_list = [k.split("-")[0] for k in month_holiday_list]
-        print("month_day_holiday_list ===>", month_day_holiday_list)
+        # print("month_day_holiday_list ===>", month_day_holiday_list)
         df_sheets = dict()
         excel_file_path = output_file_name
         for new_data in selected_row:
@@ -328,6 +331,20 @@ def generate_excel(month, year, output_file_name, selected_row):
         return [500, str(e), None]
 
 
+
+def format_date(date_str):
+    if isinstance(date_str, Timestamp):
+        date_str = date_str.strftime("%Y-%m-%d")  # Convert Timestamp to string
+    try:
+        # Attempt to parse the date string with various formats
+        date_obj = parse(date_str)
+        formatted_date = date_obj.strftime("%d-%m-%Y")
+        return formatted_date
+    except (ValueError, TypeError):
+        # If parsing fails or the input is not a string, return the original value
+        return str(date_str)
+
+
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
@@ -404,11 +421,12 @@ class Ui_MainWindow(object):
         ####################################################### END ############################################################
 
         self.error_msg = QtWidgets.QLabel(parent=self.groupBox)
-        self.error_msg.setGeometry(QtCore.QRect(20, 230, 521, 20))
+        self.error_msg.setGeometry(QtCore.QRect(20, 230, 521, 31))
         self.error_msg.setText("")
         self.error_msg.setObjectName("error_msg")
         self.error_msg.setStyleSheet("color:red;")
         self.error_msg.setFont(font)
+        self.error_msg.setWordWrap(True)
 
         ################################### Selection of Year and Month box #####################################################
         self.year_month_box = QtWidgets.QGroupBox(parent=self.groupBox)
@@ -474,6 +492,12 @@ class Ui_MainWindow(object):
         self.selectButton.setStyleSheet(
             "background-color: #a9d2d9; color: black; border-radius: 5px; border: 2px solid #a9d2d9;")
 
+
+        # Create a button for the custom action
+        self.more_info_holiday = QPushButton("...", self.centralwidget)
+        self.more_info_holiday.setToolTip("Holiday Excel Format")
+        self.more_info_holiday.setGeometry(550, 390, 21, 22)
+
         self.holidayBox = QtWidgets.QGroupBox(parent=self.centralwidget)
         self.holidayBox.setGeometry(QtCore.QRect(20, 410, 551, 80))
         self.holidayBox.setObjectName("holidayBox")
@@ -490,10 +514,13 @@ class Ui_MainWindow(object):
         self.plainTextEdit = QtWidgets.QPlainTextEdit(parent=self.holidayBox)
         self.plainTextEdit.setGeometry(QtCore.QRect(20, 30, 371, 31))
         self.plainTextEdit.setObjectName("plainTextEdit")
+        self.plainTextEdit.setReadOnly(True)
 
         self.holidayListButton = QtWidgets.QPushButton(parent=self.holidayBox)
         self.holidayListButton.setGeometry(QtCore.QRect(400, 30, 141, 31))
         self.holidayListButton.setObjectName("holidayListButton")
+        self.holidayListButton.setStyleSheet(
+            "background-color: #ddabf7; color: black; border-radius: 5px; border: 2px solid #ddabf7;")
 
         MainWindow.setStatusBar(self.statusbar)
 
@@ -510,14 +537,14 @@ class Ui_MainWindow(object):
         self.uploadButton.setText(_translate("MainWindow", "Upload"))
         self.outputFileBox.setTitle(_translate("MainWindow", "Enter Output File name"))
         self.year_month_box.setTitle(_translate("MainWindow", "Select Month and Year :"))
-        self.outputFileText.setPlainText(_translate("MainWindow", "Sample"))
+        self.outputFileText.setPlainText(_translate("MainWindow", f"AWS Cloud Platform Engineering Services_Timesheet_{self.monthBox.currentText()} {self.yearBox.currentText()}"))
         self.fileInputBox.setTitle(_translate("MainWindow", "File Input"))
         self.error_msg.setText(_translate("MainWindow", ""))
 
         self.categoryBox.setTitle(_translate("MainWindow", "Upload a category file to classify the report(Optional)"))
         self.selectButton.setText(_translate("MainWindow", "Select"))
         self.holidayBox.setTitle(_translate("MainWindow", "Upload Holiday List for Client( **xlsx format only )"))
-        self.holidayLabel.setText(_translate("MainWindow", "** Currently Data is load for 2024"))
+        self.holidayLabel.setText(_translate("MainWindow", "** Currently Data is loaded for 2024"))
         self.holidayListButton.setText(_translate("MainWindow", "Holiday List"))
 
 class MainWindow(QMainWindow):
@@ -528,18 +555,94 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.df = None
+        self.HOLIDAY_LIST = None
         # Connect your buttons to functions
         self.ui.uploadButton.clicked.connect(self.uploadFile)
         self.ui.generateButton.clicked.connect(self.generateReport)
         self.ui.selectButton.clicked.connect(self.selectCategory)
         self.ui.custom_button.clicked.connect(self.show_custom_popup)
-        self.ui.outputFileText.textChanged.connect(self.onTextChanged)
+        #self.ui.outputFileText.textChanged.connect(self.onTextChanged)
+        self.ui.monthBox.editTextChanged.connect(self.month_changed)
+        self.ui.yearBox.editTextChanged.connect(self.year_changed)
+        self.ui.holidayListButton.clicked.connect(self.load_holiday)
+        self.ui.more_info_holiday.clicked.connect(self.show_holiday_format)
 
 
     def show_custom_popup(self):
         QMessageBox.information(self, "About", "This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit.")
 
+    def show_holiday_format(self):
+        table_content = """
+                <html>
+                    <head>
+                        <style>
+                            table {
+                                font-family: arial, sans-serif;
+                                border-collapse: collapse;
+                                width: 100%;
+                            }
 
+                            td,
+                            th {
+                                border: 1px solid #dddddd;
+                                text-align: left;
+                                padding: 8px;
+                            }
+
+                            tr:nth-child(even) {
+                                background-color: #dddddd;
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <h2>Holiday List</h2>
+
+                        <table>
+                            <tr>
+                                <th>&lt;Year&gt;</th>
+                            </tr>
+                            <tr>
+                                <td>DD-MM-YYYY</td>
+                            </tr>
+                            <tr>
+                                <td>DD-MM-YYYY</td>
+                            </tr>
+                            <tr>
+                                <td>etc ...</td>
+                            </tr>
+                        </table>
+                    </body>
+                </html>
+
+            """
+        # Create a QMessageBox with HTML content
+        msg_box = QMessageBox()
+        msg_box.setWindowTitle("Holiday List HTML Format")
+        msg_box.setTextFormat(Qt.TextFormat.RichText)  # Set text format to RichText to support HTML
+        msg_box.setText(table_content)
+        msg_box.exec()
+
+    def load_holiday(self):
+        file_dialog = QFileDialog(self)
+        filepath, _ = file_dialog.getOpenFileName(self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)")
+
+        if filepath:
+            fileInfo = QtCore.QFileInfo(filepath)
+            file_name = fileInfo.fileName()
+            file_size = fileInfo.size()  # in bytes
+            # Convert file size to kilobytes
+            file_size_kb = file_size / 1024.0
+            print(f"File Name: {file_name}, File Size: {file_size_kb:.2f} KB")
+            self.holiday_df = read_file(filepath)
+
+            try:
+                self.HOLIDAY_LIST = [format_date(date[2024]) for date in self.holiday_df]
+                self.ui.plainTextEdit.setPlainText(f"{file_name} ({file_size_kb:.2f} KB)")
+                self.ui.plainTextEdit.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: green;\nborder-radius: 5px;")
+            except Exception as e:
+                self.HOLIDAY_LIST = None
+                self.ui.plainTextEdit.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: red;\nborder-radius: 5px;")
+        
     def uploadFile(self):
         self.ui.error_msg.setText("")
         file_dialog = QFileDialog(self)
@@ -570,6 +673,7 @@ class MainWindow(QMainWindow):
             else:
                 self.ui.error_msg.setText("Invalid Raw excel, please check the file or selected month.")
                 self.ui.error_msg.setStyleSheet("color:red;")
+                self.ui.inputFileText.setPlainText("")
                 self.df= None
             
 
@@ -591,6 +695,13 @@ class MainWindow(QMainWindow):
             self.ui.outputFileText.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: red;\nborder-radius: 5px;")
         else:
             self.ui.outputFileText.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: green;\nborder-radius: 5px;")
+    
+    def month_changed(self):
+        self.ui.outputFileText.setPlainText(f"AWS Cloud Platform Engineering Services_Timesheet_{self.ui.monthBox.currentText()} {self.ui.yearBox.currentText()}")
+    
+    def year_changed(self):
+        self.ui.outputFileText.setPlainText(f"AWS Cloud Platform Engineering Services_Timesheet_{self.ui.monthBox.currentText()} {self.ui.yearBox.currentText()}")
+
 
     def categorised_data(self, category, user_data):
         # Initialize an empty dictionary to store filtered data
@@ -685,30 +796,50 @@ class MainWindow(QMainWindow):
         ######################################### ITERATION 1 ##########################################################
         # Merge cells B3 to E3 and add formatted text
 
-        key_role = list(filtered_data_dict.keys())[0]
-        merge_range = 'B3:E3'
-        sheet.merge_cells(merge_range)
-        merged_cell = sheet.cell(row=3, column=2, value=key_role)
-        merged_cell.font = Font(bold=True)
-        merged_cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
-        # merged_cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")  # Orange color
-        merged_cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+        try:
+            merge_counter = 3
+            row_count = 5
+            for index, (key, value) in enumerate(filtered_data_dict.items()):
+                """
+                    merge_counter(3) + index(0) = 3+0 = 3
+                    merge_counter(3+15+1 = 19) + index(1) = 19 + 1 = 20
+                    merge_counter(19+3=22) + index(2) = 22 + 2= 24
+                    merge_counter(22+2) + index(3) = 24 + 3= 27
 
-        # Write data rows starting from B5
-        for row_index, row_data in enumerate(filtered_data_dict[key_role], start=5):
-            for col_index, value in enumerate(row_data.values(), start=2):  # Start from column B (index 2)
-                cell = sheet.cell(row=row_index, column=col_index, value=value)
-                # Apply text wrapping and center align the text
-                if col_index !=  2:
-                    cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
-                # Apply border to the cell
-                cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                    row_count = 5(start), end = 19 , index = 0
+                    row_count = 19(start) + 2 = 21, end = 23
+                    row_count = 23(start) + 2 = 25, end = 26
+                    row_count = 26(start) + 2 = 28, end = 29
+                """
+                merge_range = f'B{merge_counter + index}:E{merge_counter + index}'
+                sheet.merge_cells(merge_range)
+                merged_cell = sheet.cell(row=merge_counter + index, column=2, value=key)
+                merged_cell.font = Font(bold=True)
+                merged_cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+                # merged_cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")  # Orange color
+                merged_cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
-                if row_data["Name"] == "Total":
-                    cell.font = Font(bold=True)
-                    cell.fill = PatternFill(start_color="dcdfe0", end_color="dcdfe0", fill_type="solid")
+                # Write data rows starting from B5
+                for row_index, row_data in enumerate(filtered_data_dict[key], start=row_count):
+                    for col_index, value in enumerate(row_data.values(), start=2):  # Start from column B (index 2)
+                        cell = sheet.cell(row=row_index, column=col_index, value=value)
+                        # Apply text wrapping and center align the text
+                        if col_index !=  2:
+                            cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+                        # Apply border to the cell
+                        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
 
+                        if row_data["Name"] == "Total":
+                            cell.font = Font(bold=True)
+                            cell.fill = PatternFill(start_color="dcdfe0", end_color="dcdfe0", fill_type="solid")
+                if index == 0:
+                    merge_counter = merge_counter + len(filtered_data_dict[key]) + 1
+                else:
+                    merge_counter = merge_counter + len(filtered_data_dict[key])
+                row_count = row_index + 2
 
+        except Exception as e:
+            print("Error ===>", str(e))
 
         wb.save(self.file_name)
 
@@ -719,14 +850,30 @@ class MainWindow(QMainWindow):
         self.selected_year = self.ui.yearBox.currentText()
 
         self.file_name = self.ui.outputFileText.toPlainText().strip()
-        if " " in self.file_name:
-            return
+        # if " " in self.file_name:
+        #     return
+        # else:
+        self.file_name = self.file_name + ".xlsx"
+
+        if self.HOLIDAY_LIST:
+            
+            hl_count = Counter([i.split("-")[-1] for i in self.HOLIDAY_LIST])
+
+            if len(hl_count) > 1:
+                self.ui.plainTextEdit.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: red;\nborder-radius: 5px;")
+                return
+            else:
+                if dict(hl_count).get(self.selected_year):
+                    self.ui.plainTextEdit.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: green;\nborder-radius: 5px;")
+                else:
+                    self.ui.plainTextEdit.setStyleSheet("border-style: solid;\nborder-width: 1px;\nborder-color: red;\nborder-radius: 5px;")
+                    return
         else:
-            self.file_name = self.file_name + ".xlsx"
+            self.ui.plainTextEdit.setStyleSheet("")
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            status, response, user_data = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df)
+            status, response, user_data = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST) if self.HOLIDAY_LIST else generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, HOLIDAY_LIST_2024)
             if status ==  200:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:green;")
