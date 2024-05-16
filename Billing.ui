@@ -94,6 +94,12 @@
         <height>31</height>
        </rect>
       </property>
+      <property name="styleSheet">
+       <string notr="true">border-style: solid;
+border-width: 1px;
+border-color: red;
+border-radius: 5px;</string>
+      </property>
       <property name="plainText">
        <string>Sample.xlsx</string>
       </property>
@@ -160,7 +166,7 @@
       </property>
       <property name="icon">
        <iconset theme="folder">
-        <normaloff>.</normaloff>.</iconset>
+        <normaloff>../../../../.designer/backup</normaloff>../../../../.designer/backup</iconset>
       </property>
      </widget>
     </widget>
@@ -170,14 +176,17 @@
        <x>20</x>
        <y>230</y>
        <width>521</width>
-       <height>20</height>
+       <height>31</height>
       </rect>
      </property>
      <property name="styleSheet">
       <string notr="true"/>
      </property>
      <property name="text">
-      <string>Sample</string>
+      <string>SampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSampleSample</string>
+     </property>
+     <property name="wordWrap">
+      <bool>true</bool>
      </property>
     </widget>
     <widget class="QGroupBox" name="groupBox_2">
@@ -394,6 +403,19 @@ border-radius: 5px;</string>
       <string>Holiday List</string>
      </property>
     </widget>
+   </widget>
+   <widget class="QToolButton" name="toolButton">
+    <property name="geometry">
+     <rect>
+      <x>550</x>
+      <y>390</y>
+      <width>21</width>
+      <height>22</height>
+     </rect>
+    </property>
+    <property name="text">
+     <string>...</string>
+    </property>
    </widget>
   </widget>
   <widget class="QStatusBar" name="statusbar"/>

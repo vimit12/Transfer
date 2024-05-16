@@ -107,6 +107,8 @@ def get_month_details(month_name, year):
     return month_details, month_number
 
 #add validation of month, like if use data is for april and month is may
+# :: TODO calculation for individual user - billable days - fixed
+# :: TODO exclude date cal for holiday days if user has marked the attendance
 def generate_excel(month, year, output_file_name, selected_row, holiday_list):
     sheets_name = []
     try:
@@ -123,6 +125,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
         # print("month_day_holiday_list ===>", month_day_holiday_list)
         df_sheets = dict()
         excel_file_path = output_file_name
+        non_complaince_user = []
         for new_data in selected_row:
             billable_days = 0
             weekends = 0
@@ -130,6 +133,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
             data_model = []
             leave_taken = 0
             public_holiday = 0
+            mismatch_date = []
             for week in month_details:
                 for day in week:
                     if day:
@@ -146,7 +150,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                                f"{month_name[:3].title()}")
                         print("DAY ===>", f"{date:02}" if date < 10 else date)
                         # holiday_list = [j.split("-")[0] for j in holiday_list ]
-
+                        calculated_date = f"{date:02}" if date < 10 else f"{date}"
                         if day["is_weekend"]:
                             dt_status = 0
                         else:
@@ -155,6 +159,14 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                             match new_data.get(key):
                                 case 8:
                                     dt_status = 1
+                                    # As some user can mark attendace on holiday date
+                                    if calculated_date in month_day_holiday_list:
+                                        mismatch_date.append(calculated_date)
+                                        public_holiday += 1
+                                        dt_status = 0
+
+                                        # for Holiday keyword to be added
+                                        is_weekend_or_leave = "Holiday"
                                 case 4:
                                     dt_status = 0.5
                                     leave_taken += 0.5
@@ -162,12 +174,12 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                                     dt_status = 0.25
                                     leave_taken += 0.25
                                 case 0:
-                                    if (f"{date:02}" if date < 10 else f"{date}") in month_day_holiday_list:
+                                    if calculated_date in month_day_holiday_list:
                                         public_holiday += 1
                                         dt_status = 0
 
                                         # for Holiday keyword to be added
-                                        is_weekend_or_leave = "Public Holiday"
+                                        is_weekend_or_leave = "Holiday"
                                     else:
                                         leave_taken += 1
                                         dt_status = 0
@@ -176,7 +188,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                                         is_weekend_or_leave = "Leave"
                                 case _:
                                     leave_taken += 1
-                                    dt_status = 0  # print(dt_status)
+                                    dt_status = 0
                         billable_days += dt_status
 
                         """
@@ -184,11 +196,17 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                             ('1-Jun', 'Thu', 1, '', '', '', '', '')
                         """
                         data_model.append((dt, day_name[:3], dt_status, is_weekend_or_leave, "", "", "", "",))
-            # print("BILLABLE ====>", billable_days)
-            # print("WEEKENDS ====>", weekends)
-            # print("TOTAL WORKING DAYS ====>", total_working_days)
-            # print("LEAVE TAKEN ====>", leave_taken)
-
+            
+            billable_days = total_working_days - leave_taken
+            print("USER =====>", new_data.get('Rsname'))
+            print("BILLABLE ====>", billable_days)
+            print("WEEKENDS ====>", weekends)
+            print("TOTAL WORKING DAYS ====>", total_working_days)
+            print("LEAVE TAKEN ====>", leave_taken)
+            print("PUBLIC HOLIDAY ====>", public_holiday)
+            if mismatch_date:
+                non_complaince_user.append({"Name": new_data.get('Rsname'),"Month": month, "Listed Month Holiday": month_day_holiday_list, 
+                                            "Attendance Marked on Holiday": mismatch_date})
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
                 "Hitachi Vantara": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
                 "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
@@ -216,6 +234,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                             #    "Weekends": weekends, "Public Holidays": public_holiday,
                               "Total Number of Billable Days": total_working_days, "Service Credit Pool Days": leave_taken})
         else:
+            print("MISMACTH USER ===>", non_complaince_user)
             # Create a Pandas Excel writer using XlsxWriter as the engine
             with pd.ExcelWriter(excel_file_path, engine="xlsxwriter") as writer:
 
@@ -260,7 +279,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                             cell_bold.fill = PatternFill(start_color="fce1dc", end_color="fce1dc",
                                 fill_type="solid", )  # red color
 
-                        if cell.value == "Public Holiday":
+                        if cell.value == "Holiday":
                             cell_bold = sheet[cell.coordinate]
                             cell_bold.fill = PatternFill(start_color="cffccf", end_color="cffccf",
                                 fill_type="solid", )  # green color
@@ -330,8 +349,6 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
 
         return [500, str(e), None]
 
-
-
 def format_date(date_str):
     if isinstance(date_str, Timestamp):
         date_str = date_str.strftime("%Y-%m-%d")  # Convert Timestamp to string
@@ -344,6 +361,10 @@ def format_date(date_str):
         # If parsing fails or the input is not a string, return the original value
         return str(date_str)
 
+# Preprocess the name and item['Name'] strings
+def preprocess_name(input_str):
+    # Split the string into words, remove spaces, convert to lowercase, and sort
+    return ''.join(sorted(input_str.replace(",", "").lower().split()))
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -456,6 +477,16 @@ class Ui_MainWindow(object):
         yearIndex = self.yearBox.findText(str(currentYear))
         if yearIndex != -1:
             self.yearBox.setCurrentIndex(yearIndex)
+
+        # Disable future months and years
+        currentDate = QDate.currentDate()
+        for i in range(12):  # 12 months
+            if not (currentMonthIndex >= i):
+                self.monthBox.model().item(i).setEnabled(False)
+
+        for i in range(len(years)):
+            if int(years[i]) > currentYear:
+                self.yearBox.model().item(i).setEnabled(False)
         
         ####################################################### END ############################################################
 
@@ -700,6 +731,18 @@ class MainWindow(QMainWindow):
         self.ui.outputFileText.setPlainText(f"AWS Cloud Platform Engineering Services_Timesheet_{self.ui.monthBox.currentText()} {self.ui.yearBox.currentText()}")
     
     def year_changed(self):
+        currentYear = QDate.currentDate().year()
+        
+        if str(currentYear) > self.ui.yearBox.currentText():
+            for i in range(12):  # 12 months
+                self.ui.monthBox.model().item(i).setEnabled(True)
+        else:
+            currentMonthIndex = QDate.currentDate().month() - 1
+            for i in range(12):  # 12 months
+                if not (currentMonthIndex >= i):
+                    self.ui.monthBox.model().item(i).setEnabled(False)
+            else:
+                self.ui.monthBox.setCurrentIndex(currentMonthIndex)
         self.ui.outputFileText.setPlainText(f"AWS Cloud Platform Engineering Services_Timesheet_{self.ui.monthBox.currentText()} {self.ui.yearBox.currentText()}")
 
 
@@ -713,9 +756,14 @@ class MainWindow(QMainWindow):
             total_hours = 0
             total_billable_days = 0
             total_service_credit_days = 0
+
             for name in names_list:
+                # Preprocess the input name
+                processed_name = preprocess_name(name)
                 # Filter data based on the "Name" key in the data list
-                filtered = [item for item in user_data if item['Name'] == name]
+                # filtered = [item for item in user_data if item['Name'] == name]
+                # Filter the user data based on processed names
+                filtered = [item for item in user_data if preprocess_name(item['Name']) == processed_name]
                 filtered_data.extend(filtered)
                 # Calculate totals
                 for item in filtered:
@@ -767,7 +815,8 @@ class MainWindow(QMainWindow):
                 ]
             }
         
-        filtered_data_dict =self.categorised_data(category, user_data)
+        # filtered_data_dict =self.categorised_data(category, user_data)
+        filtered_data_dict =self.categorised_data(self.category, user_data)
 
         wb = load_workbook(self.file_name)
         sheet = wb.create_sheet("AWS Cloud Platform Engineering", 0)
@@ -887,8 +936,48 @@ class MainWindow(QMainWindow):
         print("Proccess Complete.")
 
     def selectCategory(self):
-        # Implement category selection logic here
-        pass
+        file_dialog = QFileDialog(self)
+        filepath, _ = file_dialog.getOpenFileName(self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)")
+
+        if filepath:
+            fileInfo = QtCore.QFileInfo(filepath)
+            file_name = fileInfo.fileName()
+            file_size = fileInfo.size()  # in bytes
+            # Convert file size to kilobytes
+            file_size_kb = file_size / 1024.0
+            print(f"File Name: {file_name}, File Size: {file_size_kb:.2f} KB")
+
+            self.ui.categoryInput.setPlainText(f"{file_name} ({file_size_kb:.2f} KB)")
+
+            sheet_name = 'PublicCloudResourceList'
+            # Read the Excel file into a DataFrame
+            df = pd.read_excel(filepath, sheet_name=sheet_name)
+
+            # Convert the DataFrame to a list of dictionaries
+            list_of_dicts = df.to_dict(orient='records')
+
+            # Standardize the "Full Name" field by removing commas and spaces
+            for item in list_of_dicts:
+                if 'Full Name' in item:
+                    item['Full Name'] = item['Full Name'].replace(',', '')
+
+
+            # Initialize an empty dictionary to store team-wise users
+            self.category = {}
+
+            # Iterate over each row in the DataFrame
+            for _, row in df.iterrows():
+                team = row['Team']
+                full_name = row['Full Name'].replace(',', '')
+                
+                # Check if the team is already in the dictionary
+                if team in self.category:
+                    self.category[team].append(full_name)
+                else:
+                    self.category[team] = [full_name]
+
+            print(self.category)
+                
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
