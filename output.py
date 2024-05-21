@@ -586,6 +586,9 @@ class MainWindow(QMainWindow):
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
         self.df = None
+        # Initialize an empty dictionary to store team-wise users
+        self.category = {}
+        self.summary_tab = []
         self.HOLIDAY_LIST = None
         # Connect your buttons to functions
         self.ui.uploadButton.clicked.connect(self.uploadFile)
@@ -782,38 +785,81 @@ class MainWindow(QMainWindow):
         
         return filtered_data_dict
 
+    def add_summary_page(self):
+        print(self.summary_tab)
+
+        wb = load_workbook(self.file_name)
+        sheet = wb.create_sheet("Summary", 0)
+
+        # Set tab color for the sheet
+        tab_color = "34b1eb"  # Hex color code (orange)
+        sheet.sheet_properties.tabColor = tab_color
+
+        # Write the header row starting from B4 and color the header cells
+        header = list(self.summary_tab[0].keys())
+        for col_index, value in enumerate(header):  # Start from column B (index 2)
+            cell = sheet.cell(row=4, column=col_index+1, value=value)
+            # Apply font styling (bold) and fill color to the cell
+            cell.font = Font(bold=True)
+            
+            cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")
+            # Set column width based on header column
+            if value == "Role":
+                sheet.column_dimensions[cell.column_letter].width = 35
+                cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center")
+            else:
+                sheet.column_dimensions[cell.column_letter].width = 30
+                cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+            # Apply text wrapping and center align the text
+            cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        try:
+            row_start = 5
+            for index, item in enumerate(self.summary_tab):
+                col_index = 1
+                for index_inner, (key, value) in enumerate(item.items()):
+                    cell = sheet.cell(row=row_start+index, column=col_index, value=value)
+                    cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                    col_index += 1
+                
+        except Exception as e:
+            print("Error ===>", str(e))
+
+        wb.save(self.file_name)
+
     def add_category_data(self, user_data):
-        category = {
-                "AWS DevOps Engineers": [
-                    "Ashish Mittal",
-                    "Chander Thumma",
-                    "Ganesh Baliram Sultane",
-                    "Hakeem Naseer Ahmed",
-                    "Jyothi Madamanchi",
-                    "Manoj Kumar Karoju",
-                    "Mukesh Kumar Manjhi",
-                    "Prudhviraju Vysyaraju",
-                    "P Sunil Kumar",
-                    "Sabarinath Shanmugasundaram",
-                    "Satish Gunda",
-                    "Sridhar Achary Nagavelli",
-                    "Sumitra Bhagirathi Dalai",
-                    "Suneel Kumar Komandla",
-                    "Suresh Kumar Sekar",
-                    "Venkataramana Budisetti",
-                    "Vimit Vimit"
-                ],
-                "AWS Testing Engineer": [
-                    "Vamshi Venkat Rajesh Machiraju",
-                    "Deepa Kesa"
-                ],
-                "PMO Role": [
-                    "Venu Madhav Reddy"
-                ],
-                "Scrum Master": [
-                    "Madhuri Chavan"
-                ]
-            }
+        # category = {
+        #         "AWS DevOps Engineers": [
+        #             "Ashish Mittal",
+        #             "Chander Thumma",
+        #             "Ganesh Baliram Sultane",
+        #             "Hakeem Naseer Ahmed",
+        #             "Jyothi Madamanchi",
+        #             "Manoj Kumar Karoju",
+        #             "Mukesh Kumar Manjhi",
+        #             "Prudhviraju Vysyaraju",
+        #             "P Sunil Kumar",
+        #             "Sabarinath Shanmugasundaram",
+        #             "Satish Gunda",
+        #             "Sridhar Achary Nagavelli",
+        #             "Sumitra Bhagirathi Dalai",
+        #             "Suneel Kumar Komandla",
+        #             "Suresh Kumar Sekar",
+        #             "Venkataramana Budisetti",
+        #             "Vimit Vimit"
+        #         ],
+        #         "AWS Testing Engineer": [
+        #             "Vamshi Venkat Rajesh Machiraju",
+        #             "Deepa Kesa"
+        #         ],
+        #         "PMO Role": [
+        #             "Venu Madhav Reddy"
+        #         ],
+        #         "Scrum Master": [
+        #             "Madhuri Chavan"
+        #         ]
+        #     }
         
         # filtered_data_dict =self.categorised_data(category, user_data)
         filtered_data_dict =self.categorised_data(self.category, user_data)
@@ -860,6 +906,15 @@ class MainWindow(QMainWindow):
                     row_count = 23(start) + 2 = 25, end = 26
                     row_count = 26(start) + 2 = 28, end = 29
                 """
+                self.summary_tab.append({
+                    "Role": key,
+                    "No of Resource": len(value) - 1,
+                    "APR'24 Working Days": "",
+                    "Total Available Billable Days": "above 2 *",
+                    "Total Actual Billable Days (Including Buffers)": value[-1].get("Total Number of Billable Days"),
+                    "Service Credit Days": value[-1].get("Service Credit Pool Days"),
+                    "Earn-Back Days": ""
+                })
                 merge_range = f'B{merge_counter + index}:E{merge_counter + index}'
                 sheet.merge_cells(merge_range)
                 merged_cell = sheet.cell(row=merge_counter + index, column=2, value=key)
@@ -926,7 +981,10 @@ class MainWindow(QMainWindow):
             if status ==  200:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:green;")
-                self.add_category_data(user_data)
+                
+                if self.category:
+                    self.add_category_data(user_data)
+                    self.add_summary_page()
             else:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:red;")
@@ -961,10 +1019,6 @@ class MainWindow(QMainWindow):
                 if 'Full Name' in item:
                     item['Full Name'] = item['Full Name'].replace(',', '')
 
-
-            # Initialize an empty dictionary to store team-wise users
-            self.category = {}
-
             # Iterate over each row in the DataFrame
             for _, row in df.iterrows():
                 team = row['Team']
@@ -976,7 +1030,7 @@ class MainWindow(QMainWindow):
                 else:
                     self.category[team] = [full_name]
 
-            print(self.category)
+            # print(self.category)
                 
 
 if __name__ == "__main__":
