@@ -41,7 +41,9 @@ HOLIDAY_LIST_2024 = [
                     "31-10-2024",
                     "25-12-2024"
                 ]
-            
+
+
+TOTAL_WORKING_DAY = 0
 
 def read_file(file_path):
     try:
@@ -109,7 +111,8 @@ def get_month_details(month_name, year):
 #add validation of month, like if use data is for april and month is may
 # :: TODO calculation for individual user - billable days - fixed
 # :: TODO exclude date cal for holiday days if user has marked the attendance
-def generate_excel(month, year, output_file_name, selected_row, holiday_list):
+def generate_excel(month, year, output_file_name, selected_row, holiday_list, name_mapping):
+    global TOTAL_WORKING_DAY
     sheets_name = []
     try:
         user_data = list()
@@ -134,6 +137,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
             leave_taken = 0
             public_holiday = 0
             mismatch_date = []
+            name = preprocess_name(new_data.get('Rsname'))
             for week in month_details:
                 for day in week:
                     if day:
@@ -148,7 +152,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
 
                         key = (f"{day_name[:3]}, {f'{date:02}' if date < 10 else date}-"
                                f"{month_name[:3].title()}")
-                        print("DAY ===>", f"{date:02}" if date < 10 else date)
+                        # print("DAY ===>", f"{date:02}" if date < 10 else date)
                         # holiday_list = [j.split("-")[0] for j in holiday_list ]
                         calculated_date = f"{date:02}" if date < 10 else f"{date}"
                         if day["is_weekend"]:
@@ -204,13 +208,15 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
             print("TOTAL WORKING DAYS ====>", total_working_days)
             print("LEAVE TAKEN ====>", leave_taken)
             print("PUBLIC HOLIDAY ====>", public_holiday)
+            point_of_contact = name_mapping[name][1] if name_mapping.get(name) else "xxxxxxx"
+            ID_521 = name_mapping[name][0] if name_mapping.get(name) else "xxxxxxx"
             if mismatch_date:
                 non_complaince_user.append({"Name": new_data.get('Rsname'),"Month": month, "Listed Month Holiday": month_day_holiday_list, 
                                             "Attendance Marked on Holiday": mismatch_date})
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
                 "Hitachi Vantara": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
                 "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
-                "XXXXXXXX": ["YYYYYYYY", f"{total_working_days}", "Remarks"],
+                f"{point_of_contact}": [f"{ID_521}", f"{total_working_days}", "Remarks"],
                 "Adjustments from Last Month": ["", "", ""], "0": ["", "", ""], "": ["", "", ""],
                 "Week Off": ["Personal/Sick Leave", "", ""], }
             df = pd.DataFrame(data)
@@ -234,6 +240,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list):
                             #    "Weekends": weekends, "Public Holidays": public_holiday,
                               "Total Number of Billable Days": total_working_days, "Service Credit Pool Days": leave_taken})
         else:
+            TOTAL_WORKING_DAY = total_working_days
             print("MISMACTH USER ===>", non_complaince_user)
             # Create a Pandas Excel writer using XlsxWriter as the engine
             with pd.ExcelWriter(excel_file_path, engine="xlsxwriter") as writer:
@@ -693,6 +700,16 @@ class MainWindow(QMainWindow):
             # Create DataFrame with Pandas
             self.df = read_file(filepath)
 
+            
+
+            # # Update the first list of dictionaries
+            # for item in self.df:
+            #     rsname = item.get('Rsname')
+            #     if rsname in name_to_id:
+            #         item['5-2-1'] = name_to_id[rsname]
+            #     else:
+            #         item['5-2-1'] = None  # or you can set it to some default value
+
             #Adding Validation to file upload
             dict_value = dict(Counter(list(itertools.chain.from_iterable([[item.split("-")[-1] for item in j] for j in [list(i.keys())[4:-2] for i in self.df] ]))))
             value = max(dict_value, key=dict_value.get)
@@ -800,15 +817,16 @@ class MainWindow(QMainWindow):
         for col_index, value in enumerate(header):  # Start from column B (index 2)
             cell = sheet.cell(row=4, column=col_index+1, value=value)
             # Apply font styling (bold) and fill color to the cell
-            cell.font = Font(bold=True)
+            cell.font = Font(bold=True, size=10, color="f7fafa")
             
-            cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")
+            cell.fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+            #:: TODO row of Total to color with -  #F2F2F2
             # Set column width based on header column
-            if value == "Role":
+            if value in ["Role", "Total Available Billable Days", "Total Actual Billable Days (Including service credit)"]:
                 sheet.column_dimensions[cell.column_letter].width = 35
-                cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center")
+                cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center") if value == "Role" else Alignment(wrap_text=True, horizontal="center", vertical="center")
             else:
-                sheet.column_dimensions[cell.column_letter].width = 30
+                sheet.column_dimensions[cell.column_letter].width = 20
                 cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
             # Apply text wrapping and center align the text
             cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
@@ -819,7 +837,8 @@ class MainWindow(QMainWindow):
                 col_index = 1
                 for index_inner, (key, value) in enumerate(item.items()):
                     cell = sheet.cell(row=row_start+index, column=col_index, value=value)
-                    cell.alignment = Alignment(wrap_text=True, horizontal="center", vertical="center")
+                    cell.font = Font(size=10)
+                    cell.alignment = Alignment(wrap_text=True, horizontal="left", vertical="center") if col_index == 1 else Alignment(wrap_text=True, horizontal="center", vertical="center")
                     cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                     col_index += 1
                 
@@ -829,39 +848,8 @@ class MainWindow(QMainWindow):
         wb.save(self.file_name)
 
     def add_category_data(self, user_data):
-        # category = {
-        #         "AWS DevOps Engineers": [
-        #             "Ashish Mittal",
-        #             "Chander Thumma",
-        #             "Ganesh Baliram Sultane",
-        #             "Hakeem Naseer Ahmed",
-        #             "Jyothi Madamanchi",
-        #             "Manoj Kumar Karoju",
-        #             "Mukesh Kumar Manjhi",
-        #             "Prudhviraju Vysyaraju",
-        #             "P Sunil Kumar",
-        #             "Sabarinath Shanmugasundaram",
-        #             "Satish Gunda",
-        #             "Sridhar Achary Nagavelli",
-        #             "Sumitra Bhagirathi Dalai",
-        #             "Suneel Kumar Komandla",
-        #             "Suresh Kumar Sekar",
-        #             "Venkataramana Budisetti",
-        #             "Vimit Vimit"
-        #         ],
-        #         "AWS Testing Engineer": [
-        #             "Vamshi Venkat Rajesh Machiraju",
-        #             "Deepa Kesa"
-        #         ],
-        #         "PMO Role": [
-        #             "Venu Madhav Reddy"
-        #         ],
-        #         "Scrum Master": [
-        #             "Madhuri Chavan"
-        #         ]
-        #     }
-        
-        # filtered_data_dict =self.categorised_data(category, user_data)
+        global TOTAL_WORKING_DAY
+       
         filtered_data_dict =self.categorised_data(self.category, user_data)
 
         wb = load_workbook(self.file_name)
@@ -909,9 +897,9 @@ class MainWindow(QMainWindow):
                 self.summary_tab.append({
                     "Role": key,
                     "No of Resource": len(value) - 1,
-                    "APR'24 Working Days": "",
-                    "Total Available Billable Days": "above 2 *",
-                    "Total Actual Billable Days (Including Buffers)": value[-1].get("Total Number of Billable Days"),
+                    "APR'24 Working Days": TOTAL_WORKING_DAY,
+                    "Total Available Billable Days": (len(value) - 1) * (TOTAL_WORKING_DAY),
+                    "Total Actual Billable Days (Including service credit)": value[-1].get("Total Number of Billable Days"),
                     "Service Credit Days": value[-1].get("Service Credit Pool Days"),
                     "Earn-Back Days": ""
                 })
@@ -941,6 +929,24 @@ class MainWindow(QMainWindow):
                 else:
                     merge_counter = merge_counter + len(filtered_data_dict[key])
                 row_count = row_index + 2
+            else:
+                # Calculate totals
+                total_no_of_resource = sum(item['No of Resource'] for item in self.summary_tab)
+                total_available_billable_days = sum(item['Total Available Billable Days'] for item in self.summary_tab)
+                total_actual_billable_days = sum(item['Total Actual Billable Days (Including service credit)'] for item in self.summary_tab)
+                total_service_credit_days = sum(item['Service Credit Days'] for item in self.summary_tab)
+
+                # Add totals dictionary
+                total_dict = {
+                    'Role': 'Total',
+                    'No of Resource': total_no_of_resource,
+                    "APR'24 Working Days": "",  # Typically, working days would not be summed.
+                    'Total Available Billable Days': total_available_billable_days,
+                    'Total Actual Billable Days (Including service credit)': total_actual_billable_days,
+                    'Service Credit Days': total_service_credit_days,
+                    'Earn-Back Days': total_actual_billable_days - total_available_billable_days - total_service_credit_days
+                }
+                self.summary_tab.append(total_dict)
 
         except Exception as e:
             print("Error ===>", str(e))
@@ -977,7 +983,7 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            status, response, user_data = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST) if self.HOLIDAY_LIST else generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, HOLIDAY_LIST_2024)
+            status, response, user_data = generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST, self.name_mapping) if self.HOLIDAY_LIST else generate_excel(self.selected_month, self.selected_year, self.file_name, self.df, HOLIDAY_LIST_2024, self.name_mapping)
             if status ==  200:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:green;")
@@ -1012,10 +1018,10 @@ class MainWindow(QMainWindow):
             df = pd.read_excel(filepath, sheet_name=sheet_name)
 
             # Convert the DataFrame to a list of dictionaries
-            list_of_dicts = df.to_dict(orient='records')
+            self.raw_category_list = df.to_dict(orient='records')
 
             # Standardize the "Full Name" field by removing commas and spaces
-            for item in list_of_dicts:
+            for item in self.raw_category_list:
                 if 'Full Name' in item:
                     item['Full Name'] = item['Full Name'].replace(',', '')
 
@@ -1030,7 +1036,8 @@ class MainWindow(QMainWindow):
                 else:
                     self.category[team] = [full_name]
 
-            # print(self.category)
+            # Create a mapping from Full Name to 521 ID for quick lookup
+            self.name_mapping = {preprocess_name(item['Full Name']): [item['521 ID'], item['Point of Contact'], item['Start Date'], item['End Date']] for item in self.raw_category_list}
                 
 
 if __name__ == "__main__":
