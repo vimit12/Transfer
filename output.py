@@ -32,6 +32,8 @@ from PyQt6.QtWidgets import (
     QMessageBox,
     QPushButton,
 )
+from openpyxl.utils import quote_sheetname
+
 
 HOLIDAY_LIST_2024 = [
     "01-01-2024",
@@ -1151,7 +1153,9 @@ class MainWindow(QMainWindow):
                         * (TOTAL_WORKING_DAY),
                         "Total Actual Billable Days (Including service credit)": value[
                             -1
-                        ].get("Total Number of Billable Days"),
+                        ].get("Total Number of Billable Days") + value[-1].get(
+                            "Service Credit Pool Days"
+                        ),
                         "Service Credit Days": value[-1].get(
                             "Service Credit Pool Days"
                         ),
@@ -1186,6 +1190,12 @@ class MainWindow(QMainWindow):
                             cell.alignment = Alignment(
                                 wrap_text=True, horizontal="center", vertical="center"
                             )
+                        else:
+                            # Add hyperlink to the corresponding sheet
+                            # hyperlink_cell = sheet.cell(row=merge_counter + index, column=2)
+                            if value != "Total":
+                                cell.hyperlink = f"#{quote_sheetname(value)}!A1"
+                                cell.font = Font(color="6a89bd")
                         # Apply border to the cell
                         cell.border = Border(
                             left=Side(style="thin"),
@@ -1201,6 +1211,7 @@ class MainWindow(QMainWindow):
                                 end_color="dcdfe0",
                                 fill_type="solid",
                             )
+                
                 if index == 0:
                     merge_counter = merge_counter + len(filtered_data_dict[key]) + 1
                 else:
