@@ -11,7 +11,7 @@ import re
 import sys
 import time
 from collections import Counter
-
+from copy import copy
 import numpy as np
 import openpyxl
 import pandas as pd
@@ -33,6 +33,8 @@ from PyQt6.QtWidgets import (
     QPushButton,
 )
 from openpyxl.utils import quote_sheetname
+from openpyxl.utils import get_column_letter
+from openpyxl import Workbook
 
 
 HOLIDAY_LIST_2024 = [
@@ -78,6 +80,18 @@ def read_file(file_path):
     # Return None if there is an error
     return None
 
+def sort_list_of_dicts(data):
+    # Separate the dict with 'Name' equal to 'Total'
+    total_dict = [d for d in data if d.get('Name') == 'Total']
+    
+    # Sort the remaining dicts by 'Name'
+    sorted_data = sorted([d for d in data if d.get('Name') != 'Total'], key=lambda x: x['Name'])
+    
+    # Append the 'Total' dict at the end
+    if total_dict:
+        sorted_data.extend(total_dict)
+    
+    return sorted_data
 
 def get_month_details(month_name, year):
     # Get the month number from the month name
@@ -126,12 +140,13 @@ def get_month_details(month_name, year):
 # :: TODO calculation for individual user - billable days - fixed
 # :: TODO exclude date cal for holiday days if user has marked the attendance
 def generate_excel(
-    month, year, output_file_name, selected_row, holiday_list, name_mapping
+    month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list
 ):
     global TOTAL_WORKING_DAY
     sheets_name = []
     try:
         user_data = list()
+        non_complaince_user = []
         month_name = month
         holiday_list = holiday_list
 
@@ -146,7 +161,14 @@ def generate_excel(
         # print("month_day_holiday_list ===>", month_day_holiday_list)
         df_sheets = dict()
         excel_file_path = output_file_name
-        non_complaince_user = []
+
+        # Creating a mapping from Rsname to their positions in the custom order
+        order_map = {preprocess_name(name): index for index, name in enumerate(name_order_list)}
+
+        # Sorting the list of dictionaries by the custom order
+        selected_row = sorted(selected_row, key=lambda x: order_map.get(preprocess_name(x["Rsname"]), float('inf')))
+        
+
         for new_data in selected_row:
             billable_days = 0
             weekends = 0
@@ -235,12 +257,12 @@ def generate_excel(
                         )
 
             billable_days = total_working_days - leave_taken
-            print("USER =====>", new_data.get("Rsname"))
-            print("BILLABLE ====>", billable_days)
-            print("WEEKENDS ====>", weekends)
-            print("TOTAL WORKING DAYS ====>", total_working_days)
-            print("LEAVE TAKEN ====>", leave_taken)
-            print("PUBLIC HOLIDAY ====>", public_holiday)
+            # print("USER =====>", new_data.get("Rsname"))
+            # print("BILLABLE ====>", billable_days)
+            # print("WEEKENDS ====>", weekends)
+            # print("TOTAL WORKING DAYS ====>", total_working_days)
+            # print("LEAVE TAKEN ====>", leave_taken)
+            # print("PUBLIC HOLIDAY ====>", public_holiday)
             point_of_contact = (
                 name_mapping[name][1] if name_mapping.get(name) else "xxxxxxx"
             )
@@ -317,7 +339,7 @@ def generate_excel(
             )
         else:
             TOTAL_WORKING_DAY = total_working_days
-            print("MISMACTH USER ===>", non_complaince_user)
+            
             # Create a Pandas Excel writer using XlsxWriter as the engine
             with pd.ExcelWriter(excel_file_path, engine="xlsxwriter") as writer:
 
@@ -469,7 +491,7 @@ def generate_excel(
             else:
                 wb_style.save(excel_file_path)
 
-        return [200, "Report Generated Successfully.", user_data]
+        return [200, "Report Generated Successfully.", user_data, non_complaince_user]
 
     except Exception as e:
         # Log the error
@@ -478,7 +500,7 @@ def generate_excel(
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
 
-        return [500, str(e), None]
+        return [500, str(e), None, None]
 
 
 def format_date(date_str):
@@ -1010,7 +1032,6 @@ class MainWindow(QMainWindow):
         return filtered_data_dict
 
     def add_summary_page(self):
-        print(self.summary_tab)
 
         wb = load_workbook(self.file_name)
         sheet = wb.create_sheet("Summary", 0)
@@ -1090,6 +1111,8 @@ class MainWindow(QMainWindow):
         global TOTAL_WORKING_DAY
 
         filtered_data_dict = self.categorised_data(self.category, user_data)
+        # self.order = ["Summary", "AWS Cloud Platform Engineering"]
+
 
         wb = load_workbook(self.file_name)
         sheet = wb.create_sheet("AWS Cloud Platform Engineering", 0)
@@ -1144,6 +1167,11 @@ class MainWindow(QMainWindow):
                 row_count = 23(start) + 2 = 25, end = 26
                 row_count = 26(start) + 2 = 28, end = 29
                 """
+                # value = sort_list_of_dicts(value)
+                # for val in value:
+                #     if val.get("Name") and val.get("Name") != "Total":
+                #         self.order.append(val.get("Name"))
+
                 self.summary_tab.append(
                     {
                         "Role": key,
@@ -1179,7 +1207,7 @@ class MainWindow(QMainWindow):
 
                 # Write data rows starting from B5
                 for row_index, row_data in enumerate(
-                    filtered_data_dict[key], start=row_count
+                    sort_list_of_dicts(filtered_data_dict[key]), start=row_count
                 ):
                     for col_index, value in enumerate(
                         row_data.values(), start=2
@@ -1252,6 +1280,114 @@ class MainWindow(QMainWindow):
 
         wb.save(self.file_name)
 
+    def non_compliance_resources(self, data, filename="non_complaince_user.xlsx"):
+
+        # Create a new workbook and select the active worksheet
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Attendance Data"
+        
+        # Define the header names and order
+        headers = ["Name", "Month", "Listed Month Holiday", "Attendance Marked on Holiday"]
+        
+        # Set header style
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        
+        # Write the headers to the worksheet
+        for col_num, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_num, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+            
+            # Set column width
+            column_width = max(len(header), 20)
+            ws.column_dimensions[get_column_letter(col_num)].width = column_width
+        
+        # Write the data to the worksheet
+        for row_num, entry in enumerate(data, start=2):
+            ws.cell(row=row_num, column=1, value=entry["Name"])
+            ws.cell(row=row_num, column=2, value=entry["Month"])
+            ws.cell(row=row_num, column=3, value=", ".join(entry["Listed Month Holiday"]))
+            ws.cell(row=row_num, column=4, value=", ".join(entry["Attendance Marked on Holiday"]))
+            
+            # Set alignment for data cells
+            for col_num in range(1, 5):
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Save the workbook to the specified filename
+        wb.save(filename)
+        print(f"Data written to {filename} with formatting.")
+
+    def rearrange_sheets_in_same_workbook(self, file, sheet_order):
+        # Load the source workbook
+        wb = openpyxl.load_workbook(file)
+        
+        # Create a new workbook to temporarily hold the reordered sheets
+        temp_wb = Workbook()
+        
+        # Remove the default sheet created by openpyxl
+        temp_wb.remove(temp_wb.active)
+        
+        # Copy sheets from the source workbook to the temporary workbook in the specified order
+        for sheet_name in sheet_order:
+            if sheet_name in wb.sheetnames:
+                source_sheet = wb[sheet_name]
+                temp_sheet = temp_wb.create_sheet(title=sheet_name)
+                
+                
+                # Copy column widths and add width of 20 to columns B, C, D
+                for col_idx, col in enumerate(source_sheet.columns, 1):
+                    col_letter = get_column_letter(col_idx)
+                    if col_letter in ['B', 'C', 'D'] and sheet_name not in ['Summary', 'AWS Cloud Platform Engineering']:
+                        temp_sheet.column_dimensions[col_letter].width = 20
+                    elif col_letter in source_sheet.column_dimensions:
+                        temp_sheet.column_dimensions[col_letter].width = source_sheet.column_dimensions[col_letter].width
+                
+                # Copy row heights
+                for row in source_sheet.row_dimensions:
+                    temp_sheet.row_dimensions[row].height = source_sheet.row_dimensions[row].height
+
+                # Copy merged cells
+                for merged_cell in source_sheet.merged_cells.ranges:
+                    temp_sheet.merge_cells(str(merged_cell))
+
+                # Copy all cells, values, and styles
+                for row in source_sheet.iter_rows():
+                    for cell in row:
+                        temp_cell = temp_sheet.cell(row=cell.row, column=cell.column, value=cell.value)
+                        
+                        # Copy cell styles
+                        if cell.has_style:
+                            temp_cell.font = copy(cell.font)
+                            temp_cell.border = copy(cell.border)
+                            temp_cell.fill = copy(cell.fill)
+                            temp_cell.number_format = copy(cell.number_format)
+                            temp_cell.protection = copy(cell.protection)
+                            temp_cell.alignment = copy(cell.alignment)
+        
+        # Save the temporary workbook to the original file
+        temp_wb.save(file)
+        print(f"Sheets rearranged and saved in user-defined order in {file}")
+    
+    def get_sheet_info(self, file):
+        # Load the workbook
+        wb = openpyxl.load_workbook(file)
+
+        # Get the list of sheet names
+        sheet_names = wb.sheetnames
+
+        # Get the total number of sheets
+        total_sheets = len(sheet_names)
+
+        # Print the total number of sheets and their names in order
+        print(f"Total number of sheets: {total_sheets}")
+        print("Sheets in order:")
+        for idx, sheet_name in enumerate(sheet_names):
+            print(f"{idx + 1}. {sheet_name}")
+    
     def generateReport(self):
         self.ui.error_msg.setText("")
         # Implement report generation logic here
@@ -1259,9 +1395,7 @@ class MainWindow(QMainWindow):
         self.selected_year = self.ui.yearBox.currentText()
 
         self.file_name = self.ui.outputFileText.toPlainText().strip()
-        # if " " in self.file_name:
-        #     return
-        # else:
+
         self.file_name = self.file_name + ".xlsx"
 
         if self.HOLIDAY_LIST:
@@ -1288,7 +1422,7 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            status, response, user_data = (
+            status, response, user_data, non_complaince_resources = (
                 generate_excel(
                     self.selected_month,
                     self.selected_year,
@@ -1296,6 +1430,7 @@ class MainWindow(QMainWindow):
                     self.df,
                     self.HOLIDAY_LIST,
                     self.name_mapping,
+                    self.name_order_list
                 )
                 if self.HOLIDAY_LIST
                 else generate_excel(
@@ -1305,6 +1440,7 @@ class MainWindow(QMainWindow):
                     self.df,
                     HOLIDAY_LIST_2024,
                     self.name_mapping,
+                    self.name_order_list
                 )
             )
             if status == 200:
@@ -1312,11 +1448,17 @@ class MainWindow(QMainWindow):
                 self.ui.error_msg.setStyleSheet("color:green;")
 
                 if self.category:
+                    self.get_sheet_info(self.file_name)
                     self.add_category_data(user_data)
                     self.add_summary_page()
             else:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:red;")
+
+            if non_complaince_resources:
+                self.non_compliance_resources(non_complaince_resources)
+            # print("ORDER IS =====>", self.order)
+            # self.rearrange_sheets_in_same_workbook(self.file_name, self.order)
         else:
             self.ui.error_msg.setText("Please provide raw excel file as an input.")
 
@@ -1371,6 +1513,13 @@ class MainWindow(QMainWindow):
                 ]
                 for item in self.raw_category_list
             }
+
+            self.name_order_list = []
+            for k,v in self.category.items():
+                temp_list = sorted(v)
+                self.category[k] = temp_list
+                self.name_order_list.extend(temp_list)
+            print("Category Created")
 
 
 if __name__ == "__main__":
