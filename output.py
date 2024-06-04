@@ -140,7 +140,7 @@ def get_month_details(month_name, year):
 # :: TODO calculation for individual user - billable days - fixed
 # :: TODO exclude date cal for holiday days if user has marked the attendance
 def generate_excel(
-    month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list
+    month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list, progress_bar
 ):
     global TOTAL_WORKING_DAY
     sheets_name = []
@@ -168,7 +168,9 @@ def generate_excel(
         # Sorting the list of dictionaries by the custom order
         selected_row = sorted(selected_row, key=lambda x: order_map.get(preprocess_name(x["Rsname"]), float('inf')))
         
-
+        attendance_len = len(selected_row)
+        progress_step = 0
+        step = 100/attendance_len
         for new_data in selected_row:
             billable_days = 0
             weekends = 0
@@ -333,10 +335,12 @@ def generate_excel(
                     #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
                     "Billable Time (Hours)": (total_working_days - leave_taken) * 8,
                     #    "Weekends": weekends, "Public Holidays": public_holiday,
-                    "Total Number of Billable Days": total_working_days,
+                    "Total Number of Billable Days": total_working_days - leave_taken,
                     "Service Credit Pool Days": leave_taken,
                 }
             )
+            progress_step += int(step)
+            progress_bar.setValue(progress_step)
         else:
             TOTAL_WORKING_DAY = total_working_days
             
@@ -525,8 +529,8 @@ def preprocess_name(input_str):
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
         MainWindow.setObjectName("MainWindow")
-        MainWindow.resize(595, 520)
-        MainWindow.setFixedSize(595, 520)
+        MainWindow.resize(595, 570)
+        MainWindow.setFixedSize(595, 570)
         MainWindow.setWindowIcon(QIcon("icon.png"))
 
         self.centralwidget = QtWidgets.QWidget(parent=MainWindow)
@@ -727,6 +731,14 @@ class Ui_MainWindow(object):
             "background-color: #ddabf7; color: black; border-radius: 5px; border: 2px solid #ddabf7;"
         )
 
+        self.progressBar = QtWidgets.QProgressBar(parent=self.centralwidget)
+        self.progressBar.setGeometry(QtCore.QRect(20, 510, 551, 23))
+        self.progressBar.setProperty("value", 0)
+        self.progressBar.setAlignment(QtCore.Qt.AlignmentFlag.AlignBottom|QtCore.Qt.AlignmentFlag.AlignHCenter)
+        self.progressBar.setInvertedAppearance(False)
+        self.progressBar.setTextDirection(QtWidgets.QProgressBar.Direction.TopToBottom)
+        self.progressBar.setObjectName("progressBar")
+
         MainWindow.setStatusBar(self.statusbar)
 
         self.retranslateUi(MainWindow)
@@ -772,6 +784,8 @@ class Ui_MainWindow(object):
             _translate("MainWindow", "** Currently Data is loaded for 2024")
         )
         self.holidayListButton.setText(_translate("MainWindow", "Holiday List"))
+        self.progressBar.setFormat(_translate("MainWindow", "%p%"))
+
 
 
 class MainWindow(QMainWindow):
@@ -796,13 +810,35 @@ class MainWindow(QMainWindow):
         self.ui.yearBox.editTextChanged.connect(self.year_changed)
         self.ui.holidayListButton.clicked.connect(self.load_holiday)
         self.ui.more_info_holiday.clicked.connect(self.show_holiday_format)
+        self.raw_category_list, self.name_order_list= ([], )* 2
+        self.category, self.name_mapping = (dict(),) * 2
 
-    def show_custom_popup(self):
+    def show_custom_popup(self, title=None, message=None):
+        if not title:
+            title = "About"
+        
+        if not message:
+             message="This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit."
+
         QMessageBox.information(
             self,
-            "About",
-            "This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit.",
+            title,
+            message
         )
+
+    def show_custom_message(self, title=None, message=None):
+        if not title:
+            title = "About"
+        
+        if not message:
+             message="This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit."
+
+        QMessageBox.warning(
+            self,
+            title,
+            message
+        )
+
 
     def show_holiday_format(self):
         table_content = """
@@ -915,36 +951,46 @@ class MainWindow(QMainWindow):
             #         item['5-2-1'] = None  # or you can set it to some default value
 
             # Adding Validation to file upload
-            dict_value = dict(
-                Counter(
-                    list(
-                        itertools.chain.from_iterable(
-                            [
-                                [item.split("-")[-1] for item in j]
-                                for j in [list(i.keys())[4:-2] for i in self.df]
-                            ]
+            try:
+                dict_value = dict(
+                    Counter(
+                        list(
+                            itertools.chain.from_iterable(
+                                [
+                                    [item.split("-")[-1] for item in j]
+                                    for j in [list(i.keys())[4:-2] for i in self.df]
+                                ]
+                            )
                         )
                     )
                 )
-            )
-            value = max(dict_value, key=dict_value.get)
+                value = max(dict_value, key=dict_value.get)
 
-            self.selected_month = self.ui.monthBox.currentText()
+                self.selected_month = self.ui.monthBox.currentText()
 
-            if value == self.selected_month[:3]:
-                self.ui.error_msg.setText("Valid Raw Excel Loaded")
-                self.ui.error_msg.setStyleSheet("color:green;")
-                # Update input text box with filename and size
-                self.ui.inputFileText.setPlainText(
-                    f"{file_name} ({file_size_kb:.2f} KB)"
-                )
-            else:
+                if value == self.selected_month[:3]:
+                    self.ui.error_msg.setText("Valid Raw Excel Loaded")
+                    self.ui.error_msg.setStyleSheet("color:green;")
+                    # Update input text box with filename and size
+                    self.ui.inputFileText.setPlainText(
+                        f"{file_name} ({file_size_kb:.2f} KB)"
+                    )
+                else:
+                    self.ui.error_msg.setText(
+                        "Invalid Raw excel, please check the file or selected month."
+                    )
+                    self.ui.error_msg.setStyleSheet("color:red;")
+                    self.ui.inputFileText.setPlainText("")
+                    self.df = None
+            except Exception as e:
+                print(e)
                 self.ui.error_msg.setText(
-                    "Invalid Raw excel, please check the file or selected month."
-                )
+                        "Invalid Raw excel, please check the file."
+                    )
                 self.ui.error_msg.setStyleSheet("color:red;")
                 self.ui.inputFileText.setPlainText("")
                 self.df = None
+
 
     def clean_keys(self, dict_list):
         cleaned_list = []
@@ -1040,6 +1086,34 @@ class MainWindow(QMainWindow):
         tab_color = "34b1eb"  # Hex color code (orange)
         sheet.sheet_properties.tabColor = tab_color
 
+        total_no_of_resource = sum(
+                    item["No of Resource"] for item in self.summary_tab
+        )
+        total_available_billable_days = sum(
+            item["Total Available Billable Days"] for item in self.summary_tab
+        )
+        total_actual_billable_days = sum(
+            item["Total Actual Billable Days (Including service credit)"]
+            for item in self.summary_tab
+        )
+        total_service_credit_days = sum(
+            item["Service Credit Days"] for item in self.summary_tab
+        )
+
+        # Add totals dictionary
+        total_dict = {
+            "Role": "Total",
+            "No of Resource": total_no_of_resource,
+            "APR'24 Working Days": "",  # Typically, working days would not be summed.
+            "Total Available Billable Days": total_available_billable_days,
+            "Total Actual Billable Days (Including service credit)": total_actual_billable_days,
+            "Service Credit Days": total_service_credit_days,
+            "Earn-Back Days": total_actual_billable_days
+            - total_available_billable_days
+            - total_service_credit_days,
+        }
+        self.summary_tab.append(total_dict)
+
         # Write the header row starting from B4 and color the header cells
         header = list(self.summary_tab[0].keys())
         for col_index, value in enumerate(header):  # Start from column B (index 2)
@@ -1052,11 +1126,7 @@ class MainWindow(QMainWindow):
             )
             #:: TODO row of Total to color with -  #F2F2F2
             # Set column width based on header column
-            if value in [
-                "Role",
-                "Total Available Billable Days",
-                "Total Actual Billable Days (Including service credit)",
-            ]:
+            if value in ["Role"]:
                 sheet.column_dimensions[cell.column_letter].width = 35
                 cell.alignment = (
                     Alignment(wrap_text=True, horizontal="left", vertical="center")
@@ -1065,11 +1135,26 @@ class MainWindow(QMainWindow):
                         wrap_text=True, horizontal="center", vertical="center"
                     )
                 )
+            elif value in ["Total Actual Billable Days (Including service credit)"]:
+                sheet.column_dimensions[cell.column_letter].width = 40
+                cell.alignment = (
+                    Alignment(wrap_text=True, horizontal="left", vertical="center")
+                    if value == "Role"
+                    else Alignment(
+                        wrap_text=True, horizontal="center", vertical="center"
+                    )
+                )
+            elif value in ['No of Resource','Service Credit Days','Earn-Back Days']:
+                sheet.column_dimensions[cell.column_letter].width = 15
+                cell.alignment = Alignment(
+                    wrap_text=True, horizontal="center", vertical="center"
+                )
             else:
                 sheet.column_dimensions[cell.column_letter].width = 20
                 cell.alignment = Alignment(
                     wrap_text=True, horizontal="center", vertical="center"
                 )
+                
             # Apply text wrapping and center align the text
             cell.border = Border(
                 left=Side(style="thin"),
@@ -1082,7 +1167,9 @@ class MainWindow(QMainWindow):
             row_start = 5
             for index, item in enumerate(self.summary_tab):
                 col_index = 1
+                flag = None
                 for index_inner, (key, value) in enumerate(item.items()):
+
                     cell = sheet.cell(
                         row=row_start + index, column=col_index, value=value
                     )
@@ -1102,181 +1189,158 @@ class MainWindow(QMainWindow):
                     )
                     col_index += 1
 
+                    if value == "Total":
+                        flag = index
+                        cell.font = Font(bold=True)
+                        cell.fill = PatternFill(
+                            start_color="dcdfe0",
+                            end_color="dcdfe0",
+                            fill_type="solid",
+                        )
+                    
+                    if flag == index:
+                        cell.font = Font(bold=True)
+                        cell.fill = PatternFill(
+                            start_color="dcdfe0",
+                            end_color="dcdfe0",
+                            fill_type="solid",
+                        )
+
         except Exception as e:
             print("Error ===>", str(e))
 
         wb.save(self.file_name)
 
+    def shorten_sheet_name(self, name, max_length=31):
+        if len(name) <= max_length:
+            return name
+        # Generate a unique short name
+        return name[:max_length-3] + "..."
+
     def add_category_data(self, user_data):
         global TOTAL_WORKING_DAY
 
         filtered_data_dict = self.categorised_data(self.category, user_data)
-        # self.order = ["Summary", "AWS Cloud Platform Engineering"]
-
 
         wb = load_workbook(self.file_name)
-        sheet = wb.create_sheet("AWS Cloud Platform Engineering", 0)
+        sheet_index = 0
+        for index, (key, values) in enumerate(filtered_data_dict.items()):
 
-        # Set tab color for the sheet
-        tab_color = "34b1eb"  # Hex color code (orange)
-        sheet.sheet_properties.tabColor = tab_color
+            # Calculate totals
+            total_no_of_resource = len(values) - 1
+            total_available_billable_days = (len(values) - 1)* (TOTAL_WORKING_DAY)
+            total_actual_billable_days = values[-1].get("Total Number of Billable Days") + values[-1].get("Service Credit Pool Days")
+            total_service_credit_days = values[-1].get("Service Credit Pool Days")
 
-        # Write the header row starting from B4 and color the header cells
-        header = list(user_data[0].keys())
-        for col_index, value in enumerate(
-            header, start=2
-        ):  # Start from column B (index 2)
-            cell = sheet.cell(row=4, column=col_index, value=value)
-            # Apply font styling (bold) and fill color to the cell
-            cell.font = Font(bold=True)
+            total_dict = {
+                "Role": key,
+                "No of Resource": total_no_of_resource,
+                "APR'24 Working Days": TOTAL_WORKING_DAY,  # Typically, working days would not be summed.
+                "Total Available Billable Days": total_available_billable_days,
+                "Total Actual Billable Days (Including service credit)": total_actual_billable_days,
+                "Service Credit Days": total_service_credit_days,
+                "Earn-Back Days":""
+            }
+            self.summary_tab.append(total_dict)
+            sheet = wb.create_sheet(self.shorten_sheet_name(key), sheet_index)
 
-            cell.fill = PatternFill(
-                start_color="B4C6E7", end_color="B4C6E7", fill_type="solid"
-            )
-            # Set column width based on header column
-            if value == "Name":
-                sheet.column_dimensions[cell.column_letter].width = 30
-            else:
-                sheet.column_dimensions[cell.column_letter].width = 15
-                cell.alignment = Alignment(
-                    wrap_text=True, horizontal="center", vertical="center"
+            # Set tab color for the sheet
+            tab_color = "34b1eb"  # Hex color code (orange)
+            sheet.sheet_properties.tabColor = tab_color
+
+            # Write the header row starting from B4 and color the header cells
+            header = list(user_data[0].keys())
+            for col_index, header_value in enumerate(header, start=2):  # Start from column B (index 2)
+                cell = sheet.cell(row=4, column=col_index, value=header_value)
+                # Apply font styling (bold) and fill color to the cell
+                cell.font = Font(bold=True)
+
+                cell.fill = PatternFill(
+                    start_color="B4C6E7", end_color="B4C6E7", fill_type="solid"
                 )
-            # Apply text wrapping and center align the text
-            cell.border = Border(
-                left=Side(style="thin"),
-                right=Side(style="thin"),
-                top=Side(style="thin"),
-                bottom=Side(style="thin"),
-            )
-
-        ######################################### ITERATION 1 ##########################################################
-        # Merge cells B3 to E3 and add formatted text
-
-        try:
-            merge_counter = 3
-            row_count = 5
-            for index, (key, value) in enumerate(filtered_data_dict.items()):
-                """
-                merge_counter(3) + index(0) = 3+0 = 3
-                merge_counter(3+15+1 = 19) + index(1) = 19 + 1 = 20
-                merge_counter(19+3=22) + index(2) = 22 + 2= 24
-                merge_counter(22+2) + index(3) = 24 + 3= 27
-
-                row_count = 5(start), end = 19 , index = 0
-                row_count = 19(start) + 2 = 21, end = 23
-                row_count = 23(start) + 2 = 25, end = 26
-                row_count = 26(start) + 2 = 28, end = 29
-                """
-                # value = sort_list_of_dicts(value)
-                # for val in value:
-                #     if val.get("Name") and val.get("Name") != "Total":
-                #         self.order.append(val.get("Name"))
-
-                self.summary_tab.append(
-                    {
-                        "Role": key,
-                        "No of Resource": len(value) - 1,
-                        "APR'24 Working Days": TOTAL_WORKING_DAY,
-                        "Total Available Billable Days": (len(value) - 1)
-                        * (TOTAL_WORKING_DAY),
-                        "Total Actual Billable Days (Including service credit)": value[
-                            -1
-                        ].get("Total Number of Billable Days") + value[-1].get(
-                            "Service Credit Pool Days"
-                        ),
-                        "Service Credit Days": value[-1].get(
-                            "Service Credit Pool Days"
-                        ),
-                        "Earn-Back Days": "",
-                    }
-                )
-                merge_range = f"B{merge_counter + index}:E{merge_counter + index}"
-                sheet.merge_cells(merge_range)
-                merged_cell = sheet.cell(row=merge_counter + index, column=2, value=key)
-                merged_cell.font = Font(bold=True)
-                merged_cell.alignment = Alignment(
-                    wrap_text=True, horizontal="center", vertical="center"
-                )
-                # merged_cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")  # Orange color
-                merged_cell.border = Border(
+                # Set column width based on header column
+                if header_value == "Name":
+                    sheet.column_dimensions[cell.column_letter].width = 30
+                else:
+                    sheet.column_dimensions[cell.column_letter].width = 15
+                    cell.alignment = Alignment(
+                        wrap_text=True, horizontal="center", vertical="center"
+                    )
+                # Apply text wrapping and center align the text
+                cell.border = Border(
                     left=Side(style="thin"),
                     right=Side(style="thin"),
                     top=Side(style="thin"),
                     bottom=Side(style="thin"),
                 )
 
-                # Write data rows starting from B5
-                for row_index, row_data in enumerate(
-                    sort_list_of_dicts(filtered_data_dict[key]), start=row_count
-                ):
-                    for col_index, value in enumerate(
-                        row_data.values(), start=2
-                    ):  # Start from column B (index 2)
-                        cell = sheet.cell(row=row_index, column=col_index, value=value)
-                        # Apply text wrapping and center align the text
-                        if col_index != 2:
-                            cell.alignment = Alignment(
-                                wrap_text=True, horizontal="center", vertical="center"
-                            )
-                        else:
-                            # Add hyperlink to the corresponding sheet
-                            # hyperlink_cell = sheet.cell(row=merge_counter + index, column=2)
-                            if value != "Total":
-                                cell.hyperlink = f"#{quote_sheetname(value)}!A1"
-                                cell.font = Font(color="6a89bd")
-                        # Apply border to the cell
-                        cell.border = Border(
-                            left=Side(style="thin"),
-                            right=Side(style="thin"),
-                            top=Side(style="thin"),
-                            bottom=Side(style="thin"),
-                        )
+            ######################################### ITERATION 1 ##########################################################
+            # Merge cells B3 to E3 and add formatted text
 
-                        if row_data["Name"] == "Total":
-                            cell.font = Font(bold=True)
-                            cell.fill = PatternFill(
-                                start_color="dcdfe0",
-                                end_color="dcdfe0",
-                                fill_type="solid",
-                            )
+            try:
+                merge_counter = 3
+                row_count = 5
                 
-                if index == 0:
-                    merge_counter = merge_counter + len(filtered_data_dict[key]) + 1
-                else:
-                    merge_counter = merge_counter + len(filtered_data_dict[key])
-                row_count = row_index + 2
-            else:
-                # Calculate totals
-                total_no_of_resource = sum(
-                    item["No of Resource"] for item in self.summary_tab
+                
+                
+                merge_range = f"B{merge_counter}:E{merge_counter}"
+                sheet.merge_cells(merge_range)
+                merged_cell = sheet.cell(row=merge_counter, column=2, value=key)
+                merged_cell.font = Font(bold=True)
+                merged_cell.alignment = Alignment(
+                    wrap_text=True, horizontal="center", vertical="center"
                 )
-                total_available_billable_days = sum(
-                    item["Total Available Billable Days"] for item in self.summary_tab
+                merged_cell.border = Border(
+                    left=Side(style="thin"),
+                    right=Side(style="thin"),
+                    top=Side(style="thin"),
+                    bottom=Side(style="thin"),
                 )
-                total_actual_billable_days = sum(
-                    item["Total Actual Billable Days (Including service credit)"]
-                    for item in self.summary_tab
-                )
-                total_service_credit_days = sum(
-                    item["Service Credit Days"] for item in self.summary_tab
-                )
+                flag = None
+                for row_index, value in enumerate(values, start=row_count):  # Start from column B (index 2)
+                    for col_index, (key_item, item_value) in enumerate(value.items(), start=2):
+                            cell = sheet.cell(row=row_index, column=col_index, value=item_value)
+                            # Apply text wrapping and center align the text
+                            if col_index != 2:
+                                cell.alignment = Alignment(
+                                    wrap_text=True, horizontal="center", vertical="center"
+                                )
+                            else:
+                                # Add hyperlink to the corresponding sheet
+                                # hyperlink_cell = sheet.cell(row=merge_counter + index, column=2)
+                                if item_value != "Total":
+                                    cell.hyperlink = f"#{quote_sheetname(item_value)}!A1"
+                                    cell.font = Font(color="6a89bd")
+                            # Apply border to the cell
+                            cell.border = Border(
+                                left=Side(style="thin"),
+                                right=Side(style="thin"),
+                                top=Side(style="thin"),
+                                bottom=Side(style="thin"),
+                            )
 
-                # Add totals dictionary
-                total_dict = {
-                    "Role": "Total",
-                    "No of Resource": total_no_of_resource,
-                    "APR'24 Working Days": "",  # Typically, working days would not be summed.
-                    "Total Available Billable Days": total_available_billable_days,
-                    "Total Actual Billable Days (Including service credit)": total_actual_billable_days,
-                    "Service Credit Days": total_service_credit_days,
-                    "Earn-Back Days": total_actual_billable_days
-                    - total_available_billable_days
-                    - total_service_credit_days,
-                }
-                self.summary_tab.append(total_dict)
+                            if value[key_item] == "Total":
+                                flag = row_index
+                                cell.font = Font(bold=True)
+                                cell.fill = PatternFill(
+                                    start_color="dcdfe0",
+                                    end_color="dcdfe0",
+                                    fill_type="solid",
+                                )
+                            
+                            if flag == row_index:
+                                cell.font = Font(bold=True)
+                                cell.fill = PatternFill(
+                                    start_color="dcdfe0",
+                                    end_color="dcdfe0",
+                                    fill_type="solid",
+                                )
+                
+                sheet_index = sheet_index + len(values)
+                
 
-        except Exception as e:
-            print("Error ===>", str(e))
+            except Exception as e:
+                print("Error ===>", str(e))
 
         wb.save(self.file_name)
 
@@ -1389,6 +1453,13 @@ class MainWindow(QMainWindow):
             print(f"{idx + 1}. {sheet_name}")
     
     def generateReport(self):
+
+        if not self.raw_category_list or not self.category or not self.name_mapping or not self.name_order_list:
+            title = "Error"
+            message = "Please select proper category file."
+            self.show_custom_message(title=title, message=message)
+            return None
+
         self.ui.error_msg.setText("")
         # Implement report generation logic here
         self.selected_month = self.ui.monthBox.currentText()
@@ -1422,6 +1493,7 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
+            # self.ui.progressBar.setValue(50)
             status, response, user_data, non_complaince_resources = (
                 generate_excel(
                     self.selected_month,
@@ -1430,7 +1502,8 @@ class MainWindow(QMainWindow):
                     self.df,
                     self.HOLIDAY_LIST,
                     self.name_mapping,
-                    self.name_order_list
+                    self.name_order_list,
+                    self.ui.progressBar
                 )
                 if self.HOLIDAY_LIST
                 else generate_excel(
@@ -1440,29 +1513,35 @@ class MainWindow(QMainWindow):
                     self.df,
                     HOLIDAY_LIST_2024,
                     self.name_mapping,
-                    self.name_order_list
+                    self.name_order_list,
+                    self.ui.progressBar
                 )
             )
             if status == 200:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:green;")
+                remaining_val = 100 - self.ui.progressBar.value()
 
+                step = remaining_val/3
                 if self.category:
-                    self.get_sheet_info(self.file_name)
+                    
                     self.add_category_data(user_data)
+                    self.ui.progressBar.setValue(self.ui.progressBar.value()+int(step))
                     self.add_summary_page()
+                    self.ui.progressBar.setValue(self.ui.progressBar.value()+int(step))
             else:
                 self.ui.error_msg.setText(response)
                 self.ui.error_msg.setStyleSheet("color:red;")
 
             if non_complaince_resources:
                 self.non_compliance_resources(non_complaince_resources)
-            # print("ORDER IS =====>", self.order)
-            # self.rearrange_sheets_in_same_workbook(self.file_name, self.order)
+
+            # sys.exit(1)
+            self.ui.progressBar.setValue(100)
         else:
             self.ui.error_msg.setText("Please provide raw excel file as an input.")
-
-        print("Proccess Complete.")
+        # self.ui.progressBar.setValue(100)
+        # print("Proccess Complete.")
 
     def selectCategory(self):
         file_dialog = QFileDialog(self)
@@ -1470,56 +1549,63 @@ class MainWindow(QMainWindow):
             self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)"
         )
 
-        if filepath:
-            fileInfo = QtCore.QFileInfo(filepath)
-            file_name = fileInfo.fileName()
-            file_size = fileInfo.size()  # in bytes
-            # Convert file size to kilobytes
-            file_size_kb = file_size / 1024.0
-            print(f"File Name: {file_name}, File Size: {file_size_kb:.2f} KB")
+        self.raw_category_list, self.name_order_list= ([], )* 2
+        self.category, self.name_mapping = (dict(),) * 2
 
-            self.ui.categoryInput.setPlainText(f"{file_name} ({file_size_kb:.2f} KB)")
+        try:
+            if filepath:
+                fileInfo = QtCore.QFileInfo(filepath)
+                file_name = fileInfo.fileName()
+                file_size = fileInfo.size()  # in bytes
+                # Convert file size to kilobytes
+                file_size_kb = file_size / 1024.0
+                print(f"File Name: {file_name}, File Size: {file_size_kb:.2f} KB")
 
-            sheet_name = "PublicCloudResourceList"
-            # Read the Excel file into a DataFrame
-            df = pd.read_excel(filepath, sheet_name=sheet_name)
+                self.ui.categoryInput.setPlainText(f"{file_name} ({file_size_kb:.2f} KB)")
 
-            # Convert the DataFrame to a list of dictionaries
-            self.raw_category_list = df.to_dict(orient="records")
+                sheet_name = "PublicCloudResourceList"
+                # Read the Excel file into a DataFrame
+                df = pd.read_excel(filepath, sheet_name=sheet_name)
 
-            # Standardize the "Full Name" field by removing commas and spaces
-            for item in self.raw_category_list:
-                if "Full Name" in item:
-                    item["Full Name"] = item["Full Name"].replace(",", "")
+                # Convert the DataFrame to a list of dictionaries
+                self.raw_category_list = df.to_dict(orient="records")
 
-            # Iterate over each row in the DataFrame
-            for _, row in df.iterrows():
-                team = row["Team"]
-                full_name = row["Full Name"].replace(",", "")
+                # Standardize the "Full Name" field by removing commas and spaces
+                for item in self.raw_category_list:
+                    if "Full Name" in item:
+                        item["Full Name"] = item["Full Name"].replace(",", "")
 
-                # Check if the team is already in the dictionary
-                if team in self.category:
-                    self.category[team].append(full_name)
-                else:
-                    self.category[team] = [full_name]
+                # Iterate over each row in the DataFrame
+                for _, row in df.iterrows():
+                    team = row["Team"]
+                    full_name = row["Full Name"].replace(",", "")
 
-            # Create a mapping from Full Name to 521 ID for quick lookup
-            self.name_mapping = {
-                preprocess_name(item["Full Name"]): [
-                    item["521 ID"],
-                    item["Point of Contact"],
-                    item["Start Date"],
-                    item["End Date"],
-                ]
-                for item in self.raw_category_list
-            }
+                    # Check if the team is already in the dictionary
+                    if team in self.category:
+                        self.category[team].append(full_name)
+                    else:
+                        self.category[team] = [full_name]
 
-            self.name_order_list = []
-            for k,v in self.category.items():
-                temp_list = sorted(v)
-                self.category[k] = temp_list
-                self.name_order_list.extend(temp_list)
-            print("Category Created")
+                # Create a mapping from Full Name to 521 ID for quick lookup
+                self.name_mapping = {
+                    preprocess_name(item["Full Name"]): [
+                        item["521 ID"],
+                        item["Point of Contact"],
+                        item["Start Date"],
+                        item["End Date"],
+                    ]
+                    for item in self.raw_category_list
+                }
+
+                
+                for k,v in self.category.items():
+                    temp_list = sorted(v)
+                    self.category[k] = temp_list
+                    self.name_order_list.extend(temp_list)
+                print("Category Created")
+        except Exception as e:
+            self.raw_category_list, self.name_order_list= ([], )* 2
+            self.category, self.name_mapping = (dict(),) * 2
 
 
 if __name__ == "__main__":
