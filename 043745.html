@@ -49,13 +49,17 @@
                       height: 100%;
                   }
                   div#summary-container {
-                      padding: 20px;
+                      /* padding: 20px; */
+                      padding: 2em 0 2em 0;
+                      height: 80vh;
+                      border: 0.5px solid rgb(178, 178, 176);
+                      overflow: auto;
                   }
 
                   /* Set the height of the table container to make it big */
                   .table-container {
                       /*height: 400px; !* Adjust as needed *!*/
-                      height: 80vh;
+                      height: 70vh;
                       /* Adjust as needed */
                       overflow: auto;
                   }
@@ -148,6 +152,7 @@
                   .header_content{
                       margin: 3em;
                   }
+                  
               </style>
           </head>
           <body>
@@ -179,12 +184,6 @@
                                           <button aria-expanded="false" class="btn btn-outline-warning dropdown-toggle btn-sm"
                                               data-toggle="dropdown" id="daysDropdown" type="button">Select Days</button>
                                           <ul aria-labelledby="daysDropdown" class="dropdown-menu mt-4 day-dropdown">
-                                              <!-- <li><a class="dropdown-item" data-days="1" href="#">1 Day</a></li>
-                                              <li><a class="dropdown-item" data-days="2" href="#">2 Days</a></li>
-                                              <li><a class="dropdown-item" data-days="3" href="#">3 Days</a></li>
-                                              <li><a class="dropdown-item" data-days="4" href="#">4 Days</a></li>
-                                              <li><a class="dropdown-item" data-days="5" href="#">5 Days</a></li>
-                                              <li><a class="dropdown-item" data-days="6" href="#">6 Days</a></li> -->
                                               <li><a class="dropdown-item" data-days="7" href="#">7 Days</a></li>
                                               <li><a class="dropdown-item" data-days="8" href="#">8 Days</a></li>
                                               <li><a class="dropdown-item" data-days="9" href="#">9 Days</a></li>
@@ -213,11 +212,9 @@
                   <!-- Summary Tab -->
                   <div class="tab-pane fade" id="summary" role="tabpanel" aria-labelledby="summary-tab" id="summary-tab-content">
                       <!-- <h4>Tab 2 Content</h4> -->
-                      <div>
-                      <div class="summary-container mb-4" id="summary-container">
+                      <div class="summary-container" id="summary-container">
                           <!-- Data will be populated here by JavaScript -->
                       </div>
-                    </div>
                       <!-- <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#summaryModal">Open Modal 2</button> -->
                   </div>
 
@@ -239,7 +236,8 @@
                               </div>
                               <div class="table-container" id="table-container">
                                   <!-- Data will be populated here by JavaScript -->
-                              </div>&nbsp;&nbsp;&nbsp;
+                              </div>
+                              &nbsp;&nbsp;&nbsp;
                           </div>
                   </div>
               </div>
@@ -690,7 +688,7 @@
 
                               // Create column element for each card
                               const column = document.createElement('div');
-                              column.className = 'col-md-12 mt-4';
+                              column.className = 'col-md-12 mt-2';
 
                               // Create card element
                               const card = document.createElement('div');
@@ -714,11 +712,11 @@
                               const headRow = document.createElement('tr');
 
                               const th1 = document.createElement('th');
-                              th1.textContent = 'Value';
-                              th1.style.backgroundColor = "#bef4f7"
+                              th1.textContent = key;
+                              th1.style.backgroundColor = "#FFCC00"
                               const th2 = document.createElement('th');
-                              th2.textContent = 'Count';
-                              th2.style.backgroundColor = "#bef4f7"
+                              th2.textContent = 'Values';
+                              th2.style.backgroundColor = "#FFCC00"
                               headRow.appendChild(th1);
                               headRow.appendChild(th2);
                               thead.appendChild(headRow);
