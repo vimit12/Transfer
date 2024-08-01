@@ -88,7 +88,6 @@
 
         .custom-th {
             width: 150px;
-            /* Adjust the width as needed */
         }
 
         .custom-modal {
@@ -157,6 +156,18 @@
 
         .header_content {
             margin-left: 2em;
+        }
+        .dropdown-menu {
+            white-space: normal;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        /* Ensure the dropdown menu has a fixed width */
+        .dropdown-menu {
+            max-width: 300px; /* Adjust the width as necessary */
+            max-height: 200px;
+            overflow-y: auto;
         }
     </style>
 </head>
@@ -1043,15 +1054,20 @@
                 const th = document.createElement("th");
 
                 th.className = "table-info custom-th";
-                if (key == "Description" || key == "event") {
+                if (key == "AffectedResources" || key == "eventTypeCategory" || key == "eventTypeCode" || key == "lastUpdatedTime" || key == "description") {
+                    th.style.width = "200px"
+                }
+                
+                if (key == "description" || key == "event") {
                     th.textContent = key;
+                    th.style.fontWeight = "400" 
                 } else {
                     // Create dropdown button and menu
                     const dropdownDiv = document.createElement("div");
                     dropdownDiv.className = "btn-group";
 
                     const dynamicValues = getValuesByKey(data, key); // Example dynamic array of values
-
+                    console.log(dynamicValues)
                     // Create an empty string to store the HTML for the <ul> items
                     let dropdownItemsHTML = "";
 
