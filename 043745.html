@@ -170,6 +170,7 @@
                             <button aria-expanded="false" class="btn btn-outline-warning dropdown-toggle btn-sm"
                                 data-toggle="dropdown" id="daysDropdown" type="button">Select Days</button>
                             <ul aria-labelledby="daysDropdown" class="dropdown-menu mt-4 day-dropdown">
+                                <li><a class="dropdown-item" data-days="all" href="#">Select All</a></li>
                                 <li><a class="dropdown-item" data-days="7" href="#">7 Days</a></li>
                                 <li><a class="dropdown-item" data-days="8" href="#">8 Days</a></li>
                                 <li><a class="dropdown-item" data-days="9" href="#">9 Days</a></li>
@@ -194,7 +195,7 @@
             <a class="nav-link" id="summary-tab" data-toggle="tab" href="#summary" role="tab" aria-controls="profile" aria-selected="false" onclick="createCard()">Summary</a>
         </li>
         <li class="nav-item">
-            <a class="nav-link" id="raw-tab" data-toggle="tab" href="#raw" role="tab" aria-controls="contact" aria-selected="false" onclick="renderTable(sortedData)">Additional Data</a>
+            <a class="nav-link" id="raw-tab" data-toggle="tab" href="#raw" role="tab" aria-controls="contact" aria-selected="false" onclick="rawDataTab()">Additional Data</a>
         </li>
     </ul>
     <div class="tab-content" id="myTabContent">
@@ -386,6 +387,25 @@
         });
     }
 
+    function filterSelectAllData() {
+        return jsonData.filter(item => {
+            let timeVal = parseInt(item.endTime)
+            
+            // Ignore items with null, 'null', or undefined EndTime values
+            if (timeVal == null || timeVal == 'null' || timeVal == undefined || isNaN(timeVal)) {
+                return false;
+            } else {
+                if (timeVal){
+                    return item
+                } else{
+                    return false;
+                }
+            }
+        });
+    }
+
+    
+
     function epochToDatetime(epochTime) {
         // Sample UTC epoch timestamp (in seconds)
         const utcEpochTimestamp = epochTime;
@@ -402,20 +422,29 @@
 
 
     document.addEventListener('DOMContentLoaded', function () {
-        const daysDropdown = document.getElementById('daysDropdown');
+        var daysDropdown = document.getElementById('daysDropdown');
         const dropdownMenu = document.querySelector('#daysDropdown + .dropdown-menu');
 
         // Set default value to 7 days
-        let selectedDays = 7;
-        daysDropdown.textContent = `${selectedDays} Days`;
+        // let selectedDays = 7;
+        // daysDropdown.textContent = `${selectedDays} Days`;
+        let selectedDays = "Select All";
+        daysDropdown.textContent = `${selectedDays}`;
 
         // Function to update table based on selected days
         function updateTableForSelectedDays(days) {
             const modalBody = document.querySelector('.urgent-modal-body');
-            const epochTime = getEpochTimeForSelectedDay(days);
-            const nextDayEpochTime = getEpochTimeForSelectedDay(days + 1);
-            const tabletoBuild = sortKeys(filterDataByDays(epochTime, nextDayEpochTime));
+            let tabletoBuild;
+            if (days == 'Select All'){
+                tabletoBuild = sortKeys(filterSelectAllData());
+                
+            } else {
+                const epochTime = getEpochTimeForSelectedDay(days);
+                const nextDayEpochTime = getEpochTimeForSelectedDay(days + 1);
+                tabletoBuild = sortKeys(filterDataByDays(epochTime, nextDayEpochTime));
+            }
             
+            console.log(tabletoBuild)
             if (tabletoBuild.length > 0) {
                 const headers = [
                     "AccountName",
@@ -461,7 +490,12 @@
 
         dropdownMenu.addEventListener('click', function (e) {
             selectedDays = e.target.dataset.days;
-            if (selectedDays) {
+            
+            if (selectedDays == 'all') {
+                selectedDays = "Select All"
+                daysDropdown.textContent = `${selectedDays}`;
+                updateTableForSelectedDays(selectedDays);
+            } else {
                 selectedDays = parseInt(selectedDays, 10);
                 daysDropdown.textContent = `${selectedDays} Day${selectedDays > 1 ? 's' : ''}`;
                 updateTableForSelectedDays(selectedDays);
@@ -515,6 +549,7 @@
 
         return result;
     }
+    
     function groupByKey() {
         Object.keys(jsonData[0]).forEach(key => {
             const counts = countValuesForKey(key);
@@ -571,7 +606,30 @@
         }
     }
 
-    const sortedData = sortKeys(jsonData);
+    function extractNumberFromString(str) {
+        // Regular expression to match one or more digits
+        const regex = /\d+/;
+        // Extract the number from the string
+        const match = str.match(regex);
+        // If a match is found, convert it to a number and return it
+        return match ? parseInt(match[0]) : null;
+    }
+    function rawDataTab(){
+        // alert()
+        const sortedData = sortKeys(jsonData);
+        let value = daysDropdown.textContent;
+        if (value == "Select All"){
+            renderTable(sortedData)
+        } else {
+            selected_days = extractNumberFromString(value)
+            const epochTime = getEpochTimeForSelectedDay(selected_days);
+            const nextDayEpochTime = getEpochTimeForSelectedDay(selected_days + 1);
+            tabletoBuild = sortKeys(filterDataByDays(epochTime, nextDayEpochTime));
+            renderTable(tabletoBuild)
+        }
+        
+    }
+    
 
     function filterItemsByKeyValue(targetArray, key, value) {
         return targetArray.filter(item => item[key] == value);
@@ -765,7 +823,7 @@
                             const td1 = document.createElement('td');
                             if (value.length > 30) {
                                 // td.classList.add('wrap-text');
-                                td1.textContent = truncateString(value, 30)
+                                td1.textContent = truncateString(value, 50)
                             } else {
                                 td1.textContent = value;
                             }
@@ -989,5 +1047,3 @@
 
 
 </script>
-
-
