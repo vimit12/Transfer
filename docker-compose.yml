@@ -1,0 +1,11 @@
+version: '3.8'
+
+services:
+  omf-api:
+    image: omf-api-app
+    build:
+      context: .
+    ports:
+      - "9048:9048"
+    environment:
+      - ASPNETCORE_URLS=http://+:9048
