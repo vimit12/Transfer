@@ -25,10 +25,11 @@
             z-index: 20;
             padding-top: 1rem;
             padding-bottom: 1rem;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
         }
 
         .scrollable-table {
-            max-height: 400px;
+            max-height: calc(100vh - 10rem); /* Adjust height to fit viewport minus search bar and some padding */
             overflow-y: auto;
         }
 
@@ -58,11 +59,13 @@
         #detailModal .modal-content {
             background-color: white;
             border-radius: 8px;
-            padding: 1rem;
+            padding: 1.5rem;
             max-width: 90%;
-            width: 600px;
+            width: 80%; /* Increase modal width */
             position: relative;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-height: 80vh; /* Ensure modal content fits within viewport */
+            overflow-y: auto;
         }
 
         #detailModal .close-button {
@@ -71,48 +74,146 @@
             right: 1rem;
             cursor: pointer;
         }
+
+        .full-screen-container {
+            width: 90vw;
+            height: 80vh;
+            margin: 2rem 5rem 0 5rem;
+            /*padding: 0 1rem;*/
+            box-sizing: border-box;
+        }
+
+        /* Toggle Button */
+        input:checked ~ .dot {
+            transform: translateX(100%);
+            background-color: #48bb78;
+        }
+
+        /* Additional styles for dark mode */
+        body.dark .bg-gray-600 {
+            background-color: #4a5568;
+        }
+
+        body.dark .text-gray-700 {
+            color: #cbd5e0;
+        }
+
+        /* Dark theme styles */
+        body.dark {
+            background-color: #1a202c;
+            color: #cbd5e0;
+        }
+
+        body.dark .bg-white {
+            background-color: #2d3748;
+            color: #cbd5e0;
+        }
+
+        body.dark .border-gray-300 {
+            border-color: #4a5568;
+        }
+
+        body.dark .text-gray-500 {
+            color: #a0aec0;
+        }
+
+        body.dark .text-gray-600 {
+            color: #a0aec0;
+        }
+
+        body.dark .bg-gray-100 {
+            background-color: #2d3748;
+        }
+
+        body.dark .border-b-2 {
+            border-bottom-color: #4a5568;
+        }
+
+        body.dark .border-b {
+            border-bottom-color: #4a5568;
+        }
+
+        body.dark .focus:border-blue-500:focus {
+            border-color: #63b3ed;
+        }
+
+        body.dark th {
+            background-color: #2d3748;
+            color: #a0aec0;
+        }
+
+        body.dark .fixed-search {
+            background-color: #2d3748;
+            color: #a0aec0;
+        }
+        body.dark #searchInput {
+            background-color: #2d3748;
+            color: #a0aec0;
+        }
     </style>
 </head>
 
-<body class="bg-gray-100 p-8">
-    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg custom-body">
-        <h1 class="text-3xl font-bold mb-6 text-center">Failed Jobs</h1>
+    <body class="bg-gray-100 p-8 custom-body">
 
-        <!-- Search Input -->
-        <div class="fixed-search">
-            <input type="text" id="searchInput"
-                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-                placeholder="Search by any field..." aria-label="Search">
+        <div class="flex w-full mb-12">
+            <label for="toggleB" class="flex items-center cursor-pointer">
+                <!-- toggle -->
+                <div class="relative">
+                    <!-- input -->
+                    <input type="checkbox" id="toggleB" class="sr-only">
+                    <!-- line -->
+                    <div class="block bg-gray-600 w-10 h-6 rounded-full"></div>
+                    <!-- dot -->
+                    <div class="dot absolute left-1 top-1 bg-white w-4 h-4 rounded-full transition"></div>
+                </div>
+                <!-- label -->
+                <div id="themeLabel" class="ml-2 text-gray-700 text-sm">
+                    Light Mode
+                </div>
+            </label>
         </div>
 
-        <!-- Table Wrapper -->
-        <div id="tableWrapper" class="scrollable-table mt-16">
-            <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
-                <thead id="tableHead" class="fixed-header">
-                    <!-- Table headers will be dynamically generated -->
-                </thead>
-                <tbody id="tableBody">
-                    <!-- Table rows will be dynamically generated -->
-                </tbody>
-            </table>
-        </div>
-    </div>
+        <div class="full-screen-container bg-white p-4 rounded-lg shadow-lg">
+            <h1 class="text-3xl font-bold mb-6 text-center">Failed Jobs</h1>
 
-    <!-- Modal -->
-    <div id="detailModal">
-        <div class="modal-content">
-            <button id="closeModal" class="close-button text-gray-500 hover:text-gray-700" onclick="closeModal()">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
-                    </path>
-                </svg>
-            </button>
-            <div id="modalContent">
-                <!-- Nested table will be rendered here -->
+            <!-- Search Input -->
+            <div class="fixed-search">
+                <input type="text" id="searchInput"
+                    class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                    placeholder="Search by any field..." aria-label="Search">
+            </div>
+
+            <!-- Table Wrapper -->
+            <div id="tableWrapper" class="scrollable-table mt-16">
+                <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                    <thead id="tableHead" class="fixed-header">
+                        <!-- Table headers will be dynamically generated -->
+                    </thead>
+                    <tbody id="tableBody">
+                        <!-- Table rows will be dynamically generated -->
+                    </tbody>
+                </table>
             </div>
         </div>
-    </div>
+
+        <!-- Modal -->
+        <div id="detailModal">
+            <div class="modal-content">
+                <button id="closeModal" class="close-button text-gray-500 hover:text-gray-700" onclick="closeModal()">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                        </path>
+                    </svg>
+                </button>
+                <div id="modalContent">
+                    <!-- Nested table will be rendered here -->
+                </div>
+            </div>
+        </div>
+
+    </body>
+</html>
 
     <script>
         // Load data (this function can accept any JSON array of objects)
@@ -257,9 +358,19 @@
             ];
 
 
+
             return new Promise(resolve => setTimeout(() => resolve(data), 500)); // Simulate a delay
         }
-        
+
+        // Toggle between light and dark mode
+        const toggleB = document.getElementById('toggleB');
+        const themeLabel = document.getElementById('themeLabel');
+        toggleB.addEventListener('change', () => {
+            document.body.classList.toggle('dark');
+            themeLabel.textContent = document.body.classList.contains('dark') ? 'Dark Mode' : 'Light Mode';
+        });
+
+
         // Render table headers based on the first data object's keys
         function renderTableHeaders(data) {
             const tableHead = document.getElementById('tableHead');
@@ -289,7 +400,15 @@
                                     +
                                 </button>
                             </td>`;
-                    } else {
+                    } // Handle object
+                    else if (typeof value === 'object' && value !== null) {
+                        return `<td class="px-6 py-4 border-b border-gray-200">
+                                <button class="expand-btn rounded-lg px-4 py-2 border-2 border-blue-500 text-blue-500 hover:bg-blue-600 hover:text-blue-100 duration-300" data-index="${index}" data-key="${key}">
+                                    +
+                                </button>
+                            </td>`;
+                    }
+                    else {
                         return `<td class="px-6 py-4 border-b border-gray-200">${value}</td>`;
                     }
                 }).join('');
@@ -300,65 +419,110 @@
             window.tableData = data; // Store data globally for use in modal
         }
 
-        // Render nested rows in the modal
-        function renderNestedRows(nestedData, isNested = true) {
-            if (!nestedData || !Array.isArray(nestedData)) {
-                return '';
-            }
-
-            return nestedData.map(item => {
-                const rows = Object.entries(item).map(([key, value]) => {
-                    if (typeof value === 'object' && !Array.isArray(value)) {
-                        return `<tr>
-                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
-                                <td class="px-6 py-3 border-b border-gray-300">${JSON.stringify(value, null, 2)}</td>
-                            </tr>`;
-                    } else if (Array.isArray(value)) {
-                        return `<tr>
-                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
-                                <td class="px-6 py-3 border-b border-gray-300">
-                                    <table class="nested-table min-w-full bg-white leading-normal text-sm text-gray-500">
-                                        <tbody>${renderNestedRows(value, true)}</tbody>
-                                    </table>
-                                </td>
-                            </tr>`;
-                    } else {
-                        return `<tr>
-                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
-                                <td class="px-6 py-3 border-b border-gray-300">${value}</td>
-                            </tr>`;
-                    }
-                }).join('');
-
-                return rows;
-            }).join('');
-        }
-
         // Show the modal with nested details
         function showModal(key, value) {
-            alert(value)
             const modal = document.getElementById('detailModal');
             const modalContent = document.getElementById('modalContent');
             const tableWrapper = document.getElementById('tableWrapper');
 
             modalContent.innerHTML = `
-                    <h2 class="text-2xl font-bold mb-4">Details for "${key}"</h2>
-                    <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
-                        <thead>
-                            <tr>
-                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">Key</th>
-                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">Value</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${renderNestedRows(value, false)}
-                        </tbody>
-                    </table>
-                `;
+                <h2 class="text-2xl font-bold mb-4">Details for "${key}"</h2>
+                ${renderContent(value)}
+            `;
 
             // Apply blur effect to the table
             tableWrapper.classList.add('blurred');
             modal.style.display = 'flex';
+        }
+
+        // Render content based on the type of value
+        function renderContent(value) {
+            if (Array.isArray(value)) {
+                // Check if array of objects
+                if (value.every(item => typeof item === 'object' && item !== null && !Array.isArray(item))) {
+                    return renderTableForArrayOfObjects(value);
+                }
+                // Check if array of strings
+                else if (value.every(item => typeof item === 'string')) {
+                    return renderTableForArrayOfStrings(value);
+                }
+            }
+            // Handle object
+            else if (typeof value === 'object' && value !== null) {
+                return renderTableForObject(value);
+            }
+            // Handle primitive values (string, number, etc.)
+            else {
+                return renderSingleRow(value);
+            }
+        }
+
+        // Render table for array of objects
+        // Render table for array of objects
+        function renderTableForArrayOfObjects(data) {
+            return `
+                <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                    <thead>
+                        <tr>
+                            ${Object.keys(data[0]).map(key =>
+                                `<th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">${key}</th>`
+                            ).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${data.map(item => `
+                            <tr>
+                                ${Object.values(item).map(value => {
+                                    const cellContent = (typeof value === 'object' && value !== null) ? JSON.stringify(value) : value;
+                                    return `<td class="px-6 py-3 border-b border-gray-300">${cellContent}</td>`;
+                                }).join('')}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Render table for an object
+        function renderTableForObject(data) {
+            return `
+                <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                    <tbody>
+                        ${Object.entries(data).map(([key, value]) => `
+                            <tr>
+                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
+                                <td class="px-6 py-3 border-b border-gray-300">${JSON.stringify(value)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Render table for array of strings
+        function renderTableForArrayOfStrings(data) {
+            return `
+                <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                    <tbody>
+                        <tr>
+                            <td class="px-6 py-3 border-b border-gray-300">${data.join(', ')}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
+        // Render single row for primitive values (string, number, etc.)
+        function renderSingleRow(value) {
+            return `
+                <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                    <tbody>
+                        <tr>
+                            <td class="px-6 py-3 border-b border-gray-300">${value}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
         }
 
         // Close the modal
@@ -380,7 +544,7 @@
                 const key = event.target.getAttribute('data-key');
                 const button = event.target;
 
-                
+
                 const data = window.tableData;
                 const nestedData = data[index][key];
                 showModal(key, nestedData);
@@ -423,6 +587,5 @@
         });
 
     </script>
-</body>
 
-</html>
+
