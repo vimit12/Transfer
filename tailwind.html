@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dynamic Responsive Table with Fixed Header and Search - Tailwind CSS</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/heroicons@1.0.6/dist/heroicons.min.js"></script>
+
+    <style>
+        /* Custom styles for the fixed header and search bar */
+        .fixed-header th {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 10;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+        }
+
+        .fixed-search {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 20;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+        }
+
+        .scrollable-table {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+
+        .nested-table {
+            margin-left: 2rem;
+        }
+
+        /* Blur effect for the parent table */
+        .blurred {
+            filter: blur(5px);
+            pointer-events: none;
+            /* Optional: prevent interaction with the blurred table */
+        }
+
+        /* Modal styles */
+        #detailModal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            /* Ensure the modal is in front of everything else */
+        }
+
+        #detailModal .modal-content {
+            background-color: white;
+            border-radius: 8px;
+            padding: 1rem;
+            max-width: 90%;
+            width: 600px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #detailModal .close-button {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 p-8">
+    <div class="max-w-7xl mx-auto bg-white p-6 rounded-lg shadow-lg custom-body">
+        <h1 class="text-3xl font-bold mb-6 text-center">Failed Jobs</h1>
+
+        <!-- Search Input -->
+        <div class="fixed-search">
+            <input type="text" id="searchInput"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+                placeholder="Search by any field..." aria-label="Search">
+        </div>
+
+        <!-- Table Wrapper -->
+        <div id="tableWrapper" class="scrollable-table mt-16">
+            <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                <thead id="tableHead" class="fixed-header">
+                    <!-- Table headers will be dynamically generated -->
+                </thead>
+                <tbody id="tableBody">
+                    <!-- Table rows will be dynamically generated -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Modal -->
+    <div id="detailModal">
+        <div class="modal-content">
+            <button id="closeModal" class="close-button text-gray-500 hover:text-gray-700" onclick="closeModal()">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12">
+                    </path>
+                </svg>
+            </button>
+            <div id="modalContent">
+                <!-- Nested table will be rendered here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Load data (this function can accept any JSON array of objects)
+        async function loadData() {
+            const data = [
+                {
+                    "id": 1,
+                    "name": "Alice Johnson",
+                    "age": 29,
+                    "city": "San Francisco",
+                    "email": "alice.johnson@example.com",
+                    "phone": "555-1234",
+                    "job": "Software Developer",
+                    "projects": [
+                        {
+                            "projectName": "Project Alpha",
+                            "status": "Completed",
+                            "details": {
+                                "startDate": "2023-01-10",
+                                "endDate": "2023-06-15"
+                            }
+                        },
+                        {
+                            "projectName": "Project Beta",
+                            "status": "In Progress",
+                            "details": {
+                                "startDate": "2023-07-01",
+                                "estimatedEndDate": "2023-12-31"
+                            }
+                        }
+                    ],
+                    "skills": ["JavaScript", "React", "Node.js"]
+                },
+                {
+                    "id": 2,
+                    "name": "Bob Smith",
+                    "age": 34,
+                    "city": "New York",
+                    "email": "bob.smith@example.com",
+                    "phone": "555-5678",
+                    "job": "Product Manager",
+                    "projects": [
+                        {
+                            "projectName": "Project Gamma",
+                            "status": "Completed",
+                            "details": {
+                                "startDate": "2022-09-01",
+                                "endDate": "2023-03-15"
+                            }
+                        }
+                    ],
+                    "skills": ["Product Management", "Strategy", "Marketing"]
+                },
+                {
+                    "id": 3,
+                    "name": "Charlie Brown",
+                    "age": 40,
+                    "city": "Los Angeles",
+                    "email": "charlie.brown@example.com",
+                    "phone": "555-8765",
+                    "job": "Data Scientist",
+                    "projects": [
+                        {
+                            "projectName": "Project Delta",
+                            "status": "In Progress",
+                            "details": {
+                                "startDate": "2023-02-20",
+                                "estimatedEndDate": "2023-08-20"
+                            }
+                        }
+                    ],
+                    "skills": ["Python", "Machine Learning", "Data Analysis"]
+                },
+                {
+                    "id": 4,
+                    "name": "Diana Prince",
+                    "age": 31,
+                    "city": "Chicago",
+                    "email": "diana.prince@example.com",
+                    "phone": "555-4321",
+                    "job": "UX Designer",
+                    "projects": [
+                        {
+                            "projectName": "Project Epsilon",
+                            "status": "Completed",
+                            "details": {
+                                "startDate": "2022-11-15",
+                                "endDate": "2023-05-25"
+                            }
+                        }
+                    ],
+                    "skills": ["Design Thinking", "User Research", "Prototyping"]
+                },
+                {
+                    "id": 5,
+                    "name": "Eve Adams",
+                    "age": 27,
+                    "city": "Boston",
+                    "email": "eve.adams@example.com",
+                    "phone": "555-9999",
+                    "job": "Marketing Specialist",
+                    "projects": [
+                        {
+                            "projectName": "Project Zeta",
+                            "status": "In Progress",
+                            "details": {
+                                "startDate": "2023-03-01",
+                                "estimatedEndDate": "2023-09-01"
+                            }
+                        },
+                        {
+                            "projectName": "Project Eta",
+                            "status": "Planned",
+                            "details": {
+                                "startDate": "2023-10-01",
+                                "estimatedEndDate": "2024-03-01"
+                            }
+                        }
+                    ],
+                    "skills": ["SEO", "Content Marketing", "Social Media"]
+                },
+                {
+                    "id": 6,
+                    "name": "Frank Castle",
+                    "age": 45,
+                    "city": "Seattle",
+                    "email": "frank.castle@example.com",
+                    "phone": "555-0000",
+                    "job": "Sales Manager",
+                    "projects": [
+                        {
+                            "projectName": "Project Theta",
+                            "status": "Completed",
+                            "details": {
+                                "startDate": "2022-08-01",
+                                "endDate": "2023-02-15"
+                            }
+                        }
+                    ],
+                    "skills": ["Sales Strategy", "Negotiation", "Customer Relations"]
+                }
+            ];
+
+
+            return new Promise(resolve => setTimeout(() => resolve(data), 500)); // Simulate a delay
+        }
+        
+        // Render table headers based on the first data object's keys
+        function renderTableHeaders(data) {
+            const tableHead = document.getElementById('tableHead');
+            tableHead.innerHTML = '';
+
+            if (data.length > 0) {
+                const headers = Object.keys(data[0]);
+                const headerRow = headers.map(header => `
+                        <th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">
+                            ${header.replace(/_/g, ' ')}
+                        </th>`).join('');
+
+                tableHead.insertAdjacentHTML('beforeend', `<tr>${headerRow}<th class="px-6 py-3 border-b-2 border-gray-300"></th></tr>`);
+            }
+        }
+
+        // Render the table rows based on the data
+        function renderTableRows(data) {
+            const tableBody = document.getElementById('tableBody');
+            tableBody.innerHTML = '';
+
+            data.forEach((item, index) => {
+                const row = Object.entries(item).map(([key, value]) => {
+                    if (Array.isArray(value)) {
+                        return `<td class="px-6 py-4 border-b border-gray-200">
+                                <button class="expand-btn rounded-lg px-4 py-2 border-2 border-blue-500 text-blue-500 hover:bg-blue-600 hover:text-blue-100 duration-300" data-index="${index}" data-key="${key}">
+                                    +
+                                </button>
+                            </td>`;
+                    } else {
+                        return `<td class="px-6 py-4 border-b border-gray-200">${value}</td>`;
+                    }
+                }).join('');
+
+                tableBody.insertAdjacentHTML('beforeend', `<tr>${row}</tr>`);
+            });
+
+            window.tableData = data; // Store data globally for use in modal
+        }
+
+        // Render nested rows in the modal
+        function renderNestedRows(nestedData, isNested = true) {
+            if (!nestedData || !Array.isArray(nestedData)) {
+                return '';
+            }
+
+            return nestedData.map(item => {
+                const rows = Object.entries(item).map(([key, value]) => {
+                    if (typeof value === 'object' && !Array.isArray(value)) {
+                        return `<tr>
+                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
+                                <td class="px-6 py-3 border-b border-gray-300">${JSON.stringify(value, null, 2)}</td>
+                            </tr>`;
+                    } else if (Array.isArray(value)) {
+                        return `<tr>
+                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
+                                <td class="px-6 py-3 border-b border-gray-300">
+                                    <table class="nested-table min-w-full bg-white leading-normal text-sm text-gray-500">
+                                        <tbody>${renderNestedRows(value, true)}</tbody>
+                                    </table>
+                                </td>
+                            </tr>`;
+                    } else {
+                        return `<tr>
+                                <td class="px-6 py-3 border-b border-gray-300">${key}</td>
+                                <td class="px-6 py-3 border-b border-gray-300">${value}</td>
+                            </tr>`;
+                    }
+                }).join('');
+
+                return rows;
+            }).join('');
+        }
+
+        // Show the modal with nested details
+        function showModal(key, value) {
+            alert(value)
+            const modal = document.getElementById('detailModal');
+            const modalContent = document.getElementById('modalContent');
+            const tableWrapper = document.getElementById('tableWrapper');
+
+            modalContent.innerHTML = `
+                    <h2 class="text-2xl font-bold mb-4">Details for "${key}"</h2>
+                    <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
+                        <thead>
+                            <tr>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">Key</th>
+                                <th class="px-6 py-3 border-b-2 border-gray-300 text-left leading-4 text-gray-600 uppercase tracking-wider">Value</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${renderNestedRows(value, false)}
+                        </tbody>
+                    </table>
+                `;
+
+            // Apply blur effect to the table
+            tableWrapper.classList.add('blurred');
+            modal.style.display = 'flex';
+        }
+
+        // Close the modal
+        function closeModal() {
+            const modal = document.getElementById('detailModal');
+            const tableWrapper = document.getElementById('tableWrapper');
+
+            modal.style.display = 'none';
+            tableWrapper.classList.remove('blurred');
+
+            // Re-enable all expand buttons
+            toggleButtonsState(false);
+        }
+
+        // Handle expand/collapse button clicks
+        document.addEventListener('click', function (event) {
+            if (event.target.classList.contains('expand-btn')) {
+                const index = event.target.getAttribute('data-index');
+                const key = event.target.getAttribute('data-key');
+                const button = event.target;
+
+                
+                const data = window.tableData;
+                const nestedData = data[index][key];
+                showModal(key, nestedData);
+            }
+        });
+
+        // Disable or enable all expand buttons
+        function toggleButtonsState(disabled) {
+            document.querySelectorAll('.expand-btn').forEach(button => {
+                if (!button.classList.contains('active')) {
+                    button.disabled = disabled;
+                }
+            });
+        }
+
+        // Initialize the table
+        loadData().then(data => {
+            renderTableHeaders(data);
+            renderTableRows(data);
+        });
+
+        // Filter table rows based on search input
+        document.getElementById('searchInput').addEventListener('input', function () {
+            const searchValue = this.value.toLowerCase();
+            const rows = document.querySelectorAll('#tableBody tr');
+
+            rows.forEach(row => {
+                const cells = row.getElementsByTagName('td');
+                let found = false;
+
+                for (let i = 0; i < cells.length; i++) {
+                    if (cells[i].textContent.toLowerCase().includes(searchValue)) {
+                        found = true;
+                        break;
+                    }
+                }
+
+                row.style.display = found ? '' : 'none';
+            });
+        });
+
+    </script>
+</body>
+
+</html>
