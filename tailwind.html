@@ -6,7 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dynamic Responsive Table with Fixed Header and Search - Tailwind CSS</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/heroicons@1.0.6/dist/heroicons.min.js"></script>
 
     <style>
         /* Custom styles for the fixed header and search bar */
@@ -29,12 +28,61 @@
         }
 
         .scrollable-table {
-            max-height: calc(100vh - 10rem); /* Adjust height to fit viewport minus search bar and some padding */
+            max-height: calc(100% - 4rem); /* Adjust to fit within the container */
             overflow-y: auto;
+            overflow-x: auto; /* Add horizontal scroll if necessary */
+            padding-right: 1rem; 
         }
 
         .nested-table {
             margin-left: 2rem;
+        }
+
+        /* Blur effect for the parent table */
+        .blurred {
+            filter: blur(5px);
+            pointer-events: none;
+            /* Optional: prevent interaction with the blurred table */
+        }
+
+        /* Full-Screen Container */
+        .full-screen-container {
+            max-width: 100%;
+            max-height: 100%;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 1rem;
+            box-sizing: border-box;
+            overflow: hidden; /* Ensure it doesn't overflow */
+        }
+
+        /* Scrollable Table */
+        .scrollable-table {
+            max-height: calc(100vh - 24rem); /* Adjust to fit within the container */
+            overflow-y: auto;
+            overflow-x: auto; /* Add horizontal scroll if necessary */
+            padding-right: 1rem; /* Optional: To prevent the scrollbar from overlapping content */
+        }
+
+        /* Fixed Header */
+        .fixed-header th {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 10;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.4);
+        }
+
+        /* Fixed Search Bar */
+        .fixed-search {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 20;
+            padding-top: 1rem;
+            padding-bottom: 1rem;
+            box-shadow: 0 2px 2px -1px rgba(0, 0, 0, 0.1);
         }
 
         /* Blur effect for the parent table */
@@ -75,17 +123,13 @@
             cursor: pointer;
         }
 
-        .full-screen-container {
-            width: 90vw;
-            height: 80vh;
-            margin: 2rem 5rem 0 5rem;
-            /*padding: 0 1rem;*/
-            box-sizing: border-box;
-        }
-
         /* Toggle Button */
         input:checked ~ .dot {
             transform: translateX(100%);
+            background-color: #48bb78;
+        }
+
+        input:checked + .block {
             background-color: #48bb78;
         }
 
@@ -146,15 +190,56 @@
             background-color: #2d3748;
             color: #a0aec0;
         }
+
         body.dark #searchInput {
             background-color: #2d3748;
             color: #a0aec0;
         }
+        /* Dark Mode Scrollbars */
+        body.dark ::-webkit-scrollbar {
+            width: 8px; /* Thin scrollbar width */
+        }
+
+        body.dark ::-webkit-scrollbar-thumb {
+            background-color: #4a5568; /* Dark gray thumb */
+            border-radius: 10px; /* Rounded thumb */
+        }
+
+        body.dark ::-webkit-scrollbar-track {
+            background-color: #2d3748; /* Darker gray track */
+        }
+        .header-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            /* padding: 1rem; */
+        }
+        .logo-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid gray;
+            padding: 0.5rem;
+            border-radius: 8px; /* Rounded corners */
+            background-color: #f8f9fa; /* Light background */
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1); /* Subtle shadow */
+        }
+        .logo {
+            width: 80px; /* Adjust width as needed */
+            height: auto; /* Maintain aspect ratio */
+            object-fit: contain; /* Ensure logo fits well */
+        }
+        .title {
+            flex-grow: 1;
+            text-align: center;
+            margin: 0 1rem; /* Add spacing around title */
+        }
+
     </style>
 </head>
 
     <body class="bg-gray-100 p-8 custom-body">
-
+    
         <div class="flex w-full mb-12">
             <label for="toggleB" class="flex items-center cursor-pointer">
                 <!-- toggle -->
@@ -171,18 +256,27 @@
                     Light Mode
                 </div>
             </label>
+            
+            
         </div>
-
+    
         <div class="full-screen-container bg-white p-4 rounded-lg shadow-lg">
-            <h1 class="text-3xl font-bold mb-6 text-center">Failed Jobs</h1>
-
+            <div class="header-container">
+                <!-- Logo -->
+                <div class="flex items-center">
+                    <img src="https://1000logos.net/wp-content/uploads/2020/03/Novartis-Logo.png" alt="Logo" class="logo">
+                </div>
+                <!-- Title -->
+                <h1 class="text-3xl font-bold mb-6 title">Failed Jobs</h1>
+            </div>
+    
             <!-- Search Input -->
             <div class="fixed-search">
                 <input type="text" id="searchInput"
                     class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
                     placeholder="Search by any field..." aria-label="Search">
             </div>
-
+    
             <!-- Table Wrapper -->
             <div id="tableWrapper" class="scrollable-table mt-16">
                 <table class="min-w-full bg-white leading-normal text-sm text-gray-500">
@@ -195,7 +289,7 @@
                 </table>
             </div>
         </div>
-
+    
         <!-- Modal -->
         <div id="detailModal">
             <div class="modal-content">
@@ -211,151 +305,340 @@
                 </div>
             </div>
         </div>
-
+    
     </body>
 </html>
 
     <script>
-        // Load data (this function can accept any JSON array of objects)
+    // Load data (this function can accept any JSON array of objects)
         async function loadData() {
             const data = [
-                {
-                    "id": 1,
-                    "name": "Alice Johnson",
-                    "age": 29,
-                    "city": "San Francisco",
-                    "email": "alice.johnson@example.com",
-                    "phone": "555-1234",
-                    "job": "Software Developer",
-                    "projects": [
-                        {
-                            "projectName": "Project Alpha",
-                            "status": "Completed",
-                            "details": {
-                                "startDate": "2023-01-10",
-                                "endDate": "2023-06-15"
+                            {
+                                "id": 1,
+                                "name": "Alice Johnson",
+                                "age": 29,
+                                "city": "San Francisco",
+                                "email": "alice.johnson@example.com",
+                                "phone": "555-1234",
+                                "job": "Software Developer",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Alpha",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2023-01-10",
+                                            "endDate": "2023-06-15"
+                                        }
+                                    },
+                                    {
+                                        "projectName": "Project Beta",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-07-01",
+                                            "estimatedEndDate": "2023-12-31"
+                                        }
+                                    }
+                                ],
+                                "skills": ["JavaScript", "React", "Node.js"]
+                            },
+                            {
+                                "id": 2,
+                                "name": "Bob Smith",
+                                "age": 34,
+                                "city": "New York",
+                                "email": "bob.smith@example.com",
+                                "phone": "555-5678",
+                                "job": "Product Manager",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Gamma",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2022-09-01",
+                                            "endDate": "2023-03-15"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Product Management", "Strategy", "Marketing"]
+                            },
+                            {
+                                "id": 3,
+                                "name": "Charlie Brown",
+                                "age": 40,
+                                "city": "Los Angeles",
+                                "email": "charlie.brown@example.com",
+                                "phone": "555-8765",
+                                "job": "Data Scientist",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Delta",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-02-20",
+                                            "estimatedEndDate": "2023-08-20"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Python", "Machine Learning", "Data Analysis"]
+                            },
+                            {
+                                "id": 4,
+                                "name": "Diana Prince",
+                                "age": 31,
+                                "city": "Chicago",
+                                "email": "diana.prince@example.com",
+                                "phone": "555-4321",
+                                "job": "UX Designer",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Epsilon",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2022-11-15",
+                                            "endDate": "2023-05-25"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Design Thinking", "User Research", "Prototyping"]
+                            },
+                            {
+                                "id": 5,
+                                "name": "Eve Adams",
+                                "age": 27,
+                                "city": "Boston",
+                                "email": "eve.adams@example.com",
+                                "phone": "555-9999",
+                                "job": "Marketing Specialist",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Zeta",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-03-01",
+                                            "estimatedEndDate": "2023-09-01"
+                                        }
+                                    },
+                                    {
+                                        "projectName": "Project Eta",
+                                        "status": "Planned",
+                                        "details": {
+                                            "startDate": "2023-10-01",
+                                            "estimatedEndDate": "2024-03-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["SEO", "Content Marketing", "Social Media"]
+                            },
+                            {
+                                "id": 6,
+                                "name": "Frank Castle",
+                                "age": 45,
+                                "city": "Seattle",
+                                "email": "frank.castle@example.com",
+                                "phone": "555-0000",
+                                "job": "Sales Manager",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Theta",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2022-08-01",
+                                            "endDate": "2023-02-15"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Sales Strategy", "Negotiation", "Customer Relations"]
+                            },
+                            {
+                                "id": 7,
+                                "name": "Grace Hopper",
+                                "age": 37,
+                                "city": "Austin",
+                                "email": "grace.hopper@example.com",
+                                "phone": "555-2222",
+                                "job": "System Architect",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Lambda",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-04-01",
+                                            "estimatedEndDate": "2023-12-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Systems Engineering", "Java", "Microservices"]
+                            },
+                            {
+                                "id": 8,
+                                "name": "Henry Ford",
+                                "age": 50,
+                                "city": "Detroit",
+                                "email": "henry.ford@example.com",
+                                "phone": "555-3333",
+                                "job": "Mechanical Engineer",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Mustang",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2022-01-15",
+                                            "endDate": "2022-12-15"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Automotive Design", "Mechanical Engineering", "Manufacturing"]
+                            },
+                            {
+                                "id": 9,
+                                "name": "Ivy Green",
+                                "age": 28,
+                                "city": "Miami",
+                                "email": "ivy.green@example.com",
+                                "phone": "555-4444",
+                                "job": "Content Creator",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Flora",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2023-02-01",
+                                            "endDate": "2023-07-01"
+                                        }
+                                    },
+                                    {
+                                        "projectName": "Project Fauna",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-08-01",
+                                            "estimatedEndDate": "2023-12-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Photography", "Videography", "Social Media"]
+                            },
+                            {
+                                "id": 10,
+                                "name": "Jack Daniels",
+                                "age": 41,
+                                "city": "Nashville",
+                                "email": "jack.daniels@example.com",
+                                "phone": "555-5555",
+                                "job": "Distillery Manager",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Bourbon",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2022-05-01",
+                                            "endDate": "2022-11-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Distillation", "Quality Control", "Operations Management"]
+                            },
+                            {
+                                "id": 11,
+                                "name": "Karen Black",
+                                "age": 35,
+                                "city": "Denver",
+                                "email": "karen.black@example.com",
+                                "phone": "555-6666",
+                                "job": "Environmental Scientist",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Carbon",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2021-09-01",
+                                            "endDate": "2022-05-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Environmental Impact", "Sustainability", "Data Analysis"]
+                            },
+                            {
+                                "id": 12,
+                                "name": "Linda White",
+                                "age": 43,
+                                "city": "Las Vegas",
+                                "email": "linda.white@example.com",
+                                "phone": "555-7777",
+                                "job": "Event Planner",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Gala",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-06-01",
+                                            "estimatedEndDate": "2023-09-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Event Management", "Logistics", "Customer Relations"]
+                            },
+                            {
+                                "id": 13,
+                                "name": "Mark Twain",
+                                "age": 55,
+                                "city": "Hartford",
+                                "email": "mark.twain@example.com",
+                                "phone": "555-8888",
+                                "job": "Writer",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Huck",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2021-01-01",
+                                            "endDate": "2021-12-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Creative Writing", "Storytelling", "Editing"]
+                            },
+                            {
+                                "id": 14,
+                                "name": "Nancy Drew",
+                                "age": 32,
+                                "city": "Philadelphia",
+                                "email": "nancy.drew@example.com",
+                                "phone": "555-9999",
+                                "job": "Private Investigator",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Clue",
+                                        "status": "In Progress",
+                                        "details": {
+                                            "startDate": "2023-05-01",
+                                            "estimatedEndDate": "2023-10-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Investigation", "Research", "Surveillance"]
+                            },
+                            {
+                                "id": 15,
+                                "name": "Oscar Wilde",
+                                "age": 39,
+                                "city": "Dublin",
+                                "email": "oscar.wilde@example.com",
+                                "phone": "555-1010",
+                                "job": "Playwright",
+                                "projects": [
+                                    {
+                                        "projectName": "Project Earnest",
+                                        "status": "Completed",
+                                        "details": {
+                                            "startDate": "2020-02-01",
+                                            "endDate": "2020-11-01"
+                                        }
+                                    }
+                                ],
+                                "skills": ["Dramatic Writing", "Dialogue", "Literature"]
                             }
-                        },
-                        {
-                            "projectName": "Project Beta",
-                            "status": "In Progress",
-                            "details": {
-                                "startDate": "2023-07-01",
-                                "estimatedEndDate": "2023-12-31"
-                            }
-                        }
-                    ],
-                    "skills": ["JavaScript", "React", "Node.js"]
-                },
-                {
-                    "id": 2,
-                    "name": "Bob Smith",
-                    "age": 34,
-                    "city": "New York",
-                    "email": "bob.smith@example.com",
-                    "phone": "555-5678",
-                    "job": "Product Manager",
-                    "projects": [
-                        {
-                            "projectName": "Project Gamma",
-                            "status": "Completed",
-                            "details": {
-                                "startDate": "2022-09-01",
-                                "endDate": "2023-03-15"
-                            }
-                        }
-                    ],
-                    "skills": ["Product Management", "Strategy", "Marketing"]
-                },
-                {
-                    "id": 3,
-                    "name": "Charlie Brown",
-                    "age": 40,
-                    "city": "Los Angeles",
-                    "email": "charlie.brown@example.com",
-                    "phone": "555-8765",
-                    "job": "Data Scientist",
-                    "projects": [
-                        {
-                            "projectName": "Project Delta",
-                            "status": "In Progress",
-                            "details": {
-                                "startDate": "2023-02-20",
-                                "estimatedEndDate": "2023-08-20"
-                            }
-                        }
-                    ],
-                    "skills": ["Python", "Machine Learning", "Data Analysis"]
-                },
-                {
-                    "id": 4,
-                    "name": "Diana Prince",
-                    "age": 31,
-                    "city": "Chicago",
-                    "email": "diana.prince@example.com",
-                    "phone": "555-4321",
-                    "job": "UX Designer",
-                    "projects": [
-                        {
-                            "projectName": "Project Epsilon",
-                            "status": "Completed",
-                            "details": {
-                                "startDate": "2022-11-15",
-                                "endDate": "2023-05-25"
-                            }
-                        }
-                    ],
-                    "skills": ["Design Thinking", "User Research", "Prototyping"]
-                },
-                {
-                    "id": 5,
-                    "name": "Eve Adams",
-                    "age": 27,
-                    "city": "Boston",
-                    "email": "eve.adams@example.com",
-                    "phone": "555-9999",
-                    "job": "Marketing Specialist",
-                    "projects": [
-                        {
-                            "projectName": "Project Zeta",
-                            "status": "In Progress",
-                            "details": {
-                                "startDate": "2023-03-01",
-                                "estimatedEndDate": "2023-09-01"
-                            }
-                        },
-                        {
-                            "projectName": "Project Eta",
-                            "status": "Planned",
-                            "details": {
-                                "startDate": "2023-10-01",
-                                "estimatedEndDate": "2024-03-01"
-                            }
-                        }
-                    ],
-                    "skills": ["SEO", "Content Marketing", "Social Media"]
-                },
-                {
-                    "id": 6,
-                    "name": "Frank Castle",
-                    "age": 45,
-                    "city": "Seattle",
-                    "email": "frank.castle@example.com",
-                    "phone": "555-0000",
-                    "job": "Sales Manager",
-                    "projects": [
-                        {
-                            "projectName": "Project Theta",
-                            "status": "Completed",
-                            "details": {
-                                "startDate": "2022-08-01",
-                                "endDate": "2023-02-15"
-                            }
-                        }
-                    ],
-                    "skills": ["Sales Strategy", "Negotiation", "Customer Relations"]
-                }
-            ];
+                        ];
+
 
 
 
