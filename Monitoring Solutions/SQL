@@ -1,0 +1,11 @@
+SELECT name,snapshotid,accountid,launchedon,description,progress,state,volumeid from ec2_snapshots_details where launchedon < (current_date - interval '36' day)
+
+SELECT snap.accountid,vol.volumeid as volumeID,snap.name,snap.snapshotid,snap.launchedon,snap.state,snap.progress,snap.description,ec2.backupid FROM ec2_instances_details ec2 INNER JOIN ec2_volumes_details vol on ec2.instanceid = vol.instanceid INNER JOIN ec2_snapshots_details snap on vol.volumeid = snap.volumeid and snap.launchedon < (current_date - interval '36' day)
+
+SELECT e.accountid,v.volumename,v.volumeid,e.backupid,v.createddate,e.availabilityzone from ec2_instances_details e,ec2_volumes_details v where v.volumeid not in(select snap.volumeid from ec2_snapshots_details snap where snap.launchedon >= (current_date - interval '2' day)) and e.instanceid=v.instanceid and ( e.backupid='EBS-NVS-D-35_GMT' OR e.backupid='EBS-NVS-D-35_GMTmin5' OR e.backupid='EBS-NVS-D-15_GMT' OR e.backupid='EBS-NVS-D-15_GMTmin5' OR e.backupid='EBS-NVS-D-15_GMTplus8' OR e.backupid='EBS-NVS-D-35_GMTplus8' OR e.backupid='EBS-NVS-D-365_GMT' OR e.backupid='EBS-NVS-D-365_GMTmin5' OR e.backupid='EBS-NVS-D-365_GMTplus8' OR e.backupid='EBS-NVS-D-7_GMT' OR e.backupid='EBS-NVS-D-7_GMTmin5' OR e.backupid='EBS-NVS-D-7_GMTplus8' OR e.backupid='EBS-NVS-D-10_GMT' OR e.backupid='EBS-NVS-D-10_GMTmin5' OR e.backupid='EBS-NVS-D-10_GMTplus8' OR e.backupid='EBS-NVS-D-90_GMT' OR e.backupid='EBS-NVS-D-90_GMTmin5' OR e.backupid='EBS-NVS-D-90_GMTplus8' OR e.backupid='EBS-NVS-H-35_GMT' OR e.backupid='EBS-NVS-H-35_GMTmin5' OR e.backupid='EBS-NVS-H-35_GMTplus8')
+
+SELECT volumeid,instanceid,createddate,acountid,volumename,availabilityzone,state from ec2_volumes_details where volumename='null' or owner='null' or clarityid='null' or environment='null' or ostype='null'
+
+SELECT accountid,snapaz,dbinstanceidentifier,dbsnapshotidentifier,rdsengine,vpcid,storagetype,launchedon FROM rds_snapshots_details WHERE launchedon < (current_date - interval '50' day)
+
+
