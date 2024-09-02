@@ -1,9 +1,7 @@
 import os
 import boto3
-import sys
 from datetime import datetime
 from botocore.client import Config
-
 
 
 class SnapshotReporter:
@@ -15,9 +13,8 @@ class SnapshotReporter:
 
         # Initialize necessary variables
         self.regions = ['us-east-1', 'eu-west-1']
-        self.today_date = str(datetime.now().date())
         self.bucket_name = "novartisrccgbusnvawsassets001"
-        self.file_name = "Snapshot_details.txt"
+        self.file_name = "test.txt"
         self.role_arn = [
             'arn:aws:iam::128010802554:role/RRCC_AWS_EC2OPSL3',
             'arn:aws:iam::866919043554:role/RRCC_AWS_EC2OPSL3',
@@ -57,7 +54,7 @@ class SnapshotReporter:
                 k[item['Key']] = item['Value']
         return k
 
-    def read_snapshot(self, acc_id, region, access_key, sec_key, sec_token):
+    def read_snapshot(self, acc_id, region, access_key, sec_key, sec_token, file_handle):
         try:
             client = boto3.client(
                 'ec2',
@@ -72,25 +69,31 @@ class SnapshotReporter:
             for page in page_iterator:
                 snap_details = page['Snapshots']
                 for snap in snap_details:
-                    # snap_id = snap['SnapshotId']
                     if 'Tags' in snap:
                         snap_tags = snap['Tags']
                         k = self.get_keys(snap_tags)
                         launch_time = snap['StartTime'].strftime("%Y-%m-%d %H:%M:%S")
                         encrypted_status = 'Encrypted' if snap['Encrypted'] else 'Not Encrypted'
-                        # SNAP_SHOT_DETAIL += f"{snap['SnapshotId']}|{snap['VolumeId']}|{snap['State']}|{snap['Progress']}|{snap['OwnerId']}|{launch_time}|{encrypted_status}|{snap['Description']}|{k['Name']}|{k['Owner']}|{k['CostCenter']}|{k['ClarityID']}|{k['Environment']}|{k['APPType']}|{k['OSType']}|{k['Environment']}|{k['APPType']}|{k['OSType']}\n"
 
-                        print(f"{snap['SnapshotId']}|{snap['VolumeId']}|{snap['State']}|{snap['Progress']}|{snap['OwnerId']}|{launch_time}|{encrypted_status}|{snap['Description']}|{k['Name']}|{k['Owner']}|{k['CostCenter']}|{k['ClarityID']}|{k['Environment']}|{k['APPType']}|{k['OSType']}|{k['Environment']}|{k['APPType']}|{k['OSType']}")
+                        file_handle.write(
+                            f"{snap['SnapshotId']}|{snap['VolumeId']}|{snap['State']}|"
+                            f"{snap['Progress']}|{snap['OwnerId']}|{launch_time}|"
+                            f"{encrypted_status}|{snap['Description']}|{k['Name']}|"
+                            f"{k['Owner']}|{k['CostCenter']}|{k['ClarityID']}|"
+                            f"{k['Environment']}|{k['APPType']}|{k['OSType']}\n"
+                        )
                     else:
-                        # print(snap)
                         launch_time = snap['StartTime'].strftime("%Y-%m-%d %H:%M:%S")
                         encrypted_status = 'Encrypted' if snap['Encrypted'] else 'Not Encrypted'
-                        print(f"{snap['SnapshotId']}|{snap['VolumeId']}|{snap['State']}|{snap['Progress']}|{snap['OwnerId']}|{launch_time}|{encrypted_status}|{snap['Description']}|null|null|null|null|null|null|null|null|null|null")
-                        # SNAP_SHOT_DETAIL += f"{snap['SnapshotId']}|null|null|null|null|null|null|null|null|null|null|null|null|null|null|null|null|null\n"
+                        file_handle.write(
+                            f"{snap['SnapshotId']}|{snap['VolumeId']}|{snap['State']}|"
+                            f"{snap['Progress']}|{snap['OwnerId']}|{launch_time}|"
+                            f"{encrypted_status}|{snap['Description']}|null|null|null|null|null|null|null\n"
+                        )
         except Exception as error:
             print(f"Error: {error}")
 
-    def assume_role_and_read_snapshots(self, i):
+    def assume_role_and_read_snapshots(self, i, file_handle):
         try:
             sts_client = boto3.client('sts')
             response = sts_client.assume_role(
@@ -103,7 +106,7 @@ class SnapshotReporter:
             sec_token = response['Credentials']['SessionToken']
             acc_id = self.account_id[i]
             for region in self.regions:
-                self.read_snapshot(acc_id, region, access_key, sec_key, sec_token)
+                self.read_snapshot(acc_id, region, access_key, sec_key, sec_token, file_handle)
         except Exception as error:
             print(f"Error: {error}")
 
@@ -121,25 +124,13 @@ class SnapshotReporter:
 
     def generate_snapshot_report(self):
         try:
-            # global SNAP_SHOT_DETAIL
             length = len(self.role_arn)
-            # for i in range(length):
-            #     self.assume_role_and_read_snapshots(i)
+            with open(self.file_name, 'w') as file_handle:
+                header = "SnapshotId|VolumeId|State|Progress|OwnerId|LaunchTime|EncryptedStatus|Description|Name|Owner|CostCenter|ClarityID|Environment|APPType|OSType\n"
 
-
-            orig_stdout = sys.stdout
-            with open(self.file_name, 'w') as f:
-                sys.stdout = f
+                file_handle.write(header)
                 for i in range(length):
-                    self.assume_role_and_read_snapshots(i)
-                sys.stdout = orig_stdout
-
-            # print("Upload the file to S3 bucket")
-            # self.upload_file()
-            # Write the SNAP_SHOT_DETAIL to a file
-            # file_name = "Snapshot_details.txt"
-            # with open(file_name, "w") as file:
-            #     file.write(SNAP_SHOT_DETAIL)
+                    self.assume_role_and_read_snapshots(i, file_handle)
 
             print(f"Snapshot details saved to {self.file_name}")
         except Exception as error:
