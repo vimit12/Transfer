@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="SELECTIVE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="32fcb8c1-5060-4ff9-934b-4453074c5d25" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/043745.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/045879.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Archive.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/Archive.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/instance_detail_tst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/instance_details.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/rds_detail_tst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/volume_details.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/boilerplate.py" beforeDir="false" afterPath="$PROJECT_DIR$/boilerplate.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_1.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_2.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_3.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_4.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_5.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/chunk_6.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/instance_detail_tst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/instance_details.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/omf-service-OMF_GQA.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/omf-service-backup_gqa_28-May-2024.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rds_detail_tst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/rich.py" beforeDir="false" afterPath="$PROJECT_DIR$/rich_test.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/sample" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/sample.py" beforeDir="false" afterPath="$PROJECT_DIR$/sample.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/volume_detail_tst.txt" beforeDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "lastFilter": {
+    "state": "OPEN",
+    "assignee": "vimit12"
+  }
+}]]></component>
+  <component name="GithubPullRequestsUISettings"><![CDATA[{
+  "selectedUrlAndAccountId": {
+    "url": "https://github.com/vimit12/Transfer.git",
+    "accountId": "7688ebf3-082d-4456-ab50-1694230078b2"
+  }
+}]]></component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 2
+}]]></component>
+  <component name="ProjectId" id="2mMoqF8gmI8MjinZV8WMaDu05WA" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Python.boilerplate.executor": "Run",
+    "Python.sample.executor": "Run",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "git-widget-placeholder": "main",
+    "last_opened_file_path": "/Users/vimit/Desktop/Practice/Transfer",
+    "settings.editor.selected.configurable": "preferences.fileTypes"
+  }
+}]]></component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-python-sdk-8336bb23522e-31b6be0877a2-com.jetbrains.pycharm.community.sharedIndexes.bundled-PC-241.19072.16" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="32fcb8c1-5060-4ff9-934b-4453074c5d25" name="Changes" comment="" />
+      <created>1726895994959</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1726895994959</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/boilerplate.py</url>
+          <line>288</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/boilerplate.py</url>
+          <line>250</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/boilerplate.py</url>
+          <line>251</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" suspend="THREAD" type="python-line">
+          <url>file://$PROJECT_DIR$/boilerplate.py</url>
+          <line>259</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>
