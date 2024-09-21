@@ -11,6 +11,14 @@ import time
 from functools import wraps
 import traceback
 import inspect
+import time
+import types
+from rich.console import Console
+from rich.panel import Panel
+import functools
+
+
+console = Console()
 
 
 # 1. Custom Exception Class
@@ -118,6 +126,9 @@ class AWSLogger:
     def log_info(self, message: str) -> None:
         self.logger.info(message)
 
+    def log_debug(self, message: str) -> None:
+        self.logger.debug(message)
+
     def log_warning(self, message: str) -> None:
         self.logger.warning(message)
 
@@ -160,89 +171,180 @@ class AWSConstantsConfig:
 
 
 # 4. Time Execution class
-class TimeExecution:
-    """
-    A decorator class to measure and display the execution time of functions or class methods.
-    """
+class TimeLogger:
+    """Decorator to measure the execution time of functions and methods."""
 
-    def __init__(self, func):
-        self.func = func
+    def __call__(self, func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            start_time = time.time()  # Record start time
+            result = func(*args, **kwargs)  # Call the decorated function
+            end_time = time.time()  # Record end time
+            execution_time = end_time - start_time  # Calculate execution time
 
-    def __call__(self, *args, **kwargs):
-        start_time = time.time()
-        result = self.func(*args, **kwargs)
-        end_time = time.time()
-        execution_time = end_time - start_time
-        print(f"Execution time of {self.func.__name__}: {execution_time:.6f} seconds")
-        return result
+            panel = Panel(f'Execution time of [bold]{func.__name__}[/bold]: {execution_time:.4f} seconds',
+                title=f"Execution Time - {func.__name__}", border_style="cyan")
+            console.print(panel)  # Display execution time in a panel
+            return result
+
+        return wrapper
 
 
-# 3. Generic class which will start the actual work
+# 5. Generic Class which will start the actual work
 class GenericWorker:
     """
-    A generic class to perform operations leveraging Logger, CustomException, and Constants.
+    A generic class to perform various tasks with timing capabilities.
 
     Attributes:
-    - _logger (Logger): Custom logger for logging.
+       - _logger (Logger): Custom logger for logging.
 
     Methods:
-    - __init__: Initializes the class and sets up the logger.
-    - start_process: Simulates the start of an actual work process.
-    - _private_method: A private method to simulate internal logic.
-    - _protected_method: A protected method.
-    - _static_method: A static method to perform a utility function.
-    - _class_method: A class method for example purposes.
+    - __init__: Initializes the class with an optional value.
+    - example_method: Simulates a long-running instance method.
+    - _protected_method: Simulates a long-running protected method.
+    - __private_method: Simulates a long-running private method.
+    - example_class_method: Simulates a long-running public class method.
+    - _protected_class_method: Simulates a long-running protected class method.
+    - __private_class_method: Simulates a long-running private class method.
+    - example_static_method: Simulates a long-running public static method.
+    - _protected_static_method: Simulates a long-running protected static method.
+    - __private_static_method: Simulates a long-running private static method.
     """
-    __slots__ = ['_logger', ]
+
+    __slots__ = ["_logger"]
 
     def __init__(self, logger: AWSLogger = None):
+        """
+            Initializes the GenericWorker with an optional logger.
+
+            Args:
+                logger (AWSLogger, optional): An instance of AWSLogger to capture logs.
+                    If not provided, a default logger is created with the name
+                    "GenericWorkerLogger" and logs to "worker.log".
+        """
+
         self._logger = logger if logger else AWSLogger("GenericWorkerLogger", "worker.log")  # Protected logger instance
 
-    @TimeExecution
+    @TimeLogger()
     def start_process(self):
-        """Starts the main process and logs the execution."""
-        try:
-            self._logger.info("Process started.")
-            self.__private_method()
-        except AWSCustomError as e:
-            self._logger.error(f"Exception occurred: {str(e)}")
+        """Simulates a long-running instance method.
 
-    def __private_method(self):
-        """Private method to simulate a task."""
+        Inputs:
+            None
+        """
         try:
-            # Simulate task and throw exception
-            self._logger.debug("Executing private method.")
-            if True:  # Example condition
-                raise AWSCustomError("Simulated exception in private method.")
-        except AWSCustomError as e:
-            raise AWSCustomError("Error in _private_method") from e
+            self._logger.log_info("Process started.")
+            self.__private_method()  # Call the private method
+        except Exception as e:
+            self._logger.log_error(f"Exception occurred: {str(e)}")
+            raise AWSCustomError("An error occurred during processing", e)
 
+
+    @TimeLogger()
     def _protected_method(self):
-        """Protected method to simulate another process."""
-        self._logger.debug("Executing protected method.")
-        # Simulated logic
+        """Simulates a long-running protected method.
 
-    @staticmethod
-    def _static_method():
-        """Static method to perform a utility function."""
-        return "Static method called"
+        Inputs:
+            None
+        """
+        ...
+
+    @TimeLogger()
+    def __private_method(self):
+        """Simulates a long-running private method.
+
+        Inputs:
+            None
+        """
+        ...
 
     @classmethod
-    def _class_method(cls):
-        """Class method to demonstrate class-level operations."""
-        return "Class method called"
+    @TimeLogger()
+    def example_class_method(cls):
+        """Simulates a long-running public class method.
+
+        Args:
+            cls: The class itself.
+        """
+        ...
+
+    @classmethod
+    @TimeLogger()
+    def _protected_class_method(cls):
+        """Simulates a long-running protected class method.
+
+        Args:
+            cls: The class itself.
+        """
+        ...
+
+    @classmethod
+    @TimeLogger()
+    def __private_class_method(cls):
+        """Simulates a long-running private class method.
+
+        Args:
+            cls: The class itself.
+        """
+        ...
+
+    @staticmethod
+    @TimeLogger()
+    def example_static_method():
+        """Simulates a long-running public static method.
+
+        Inputs:
+            None
+        """
+        ...
+
+    @staticmethod
+    @TimeLogger()
+    def _protected_static_method():
+        """Simulates a long-running protected static method.
+
+        Inputs:
+            None
+        """
+        ...
+
+    @staticmethod
+    @TimeLogger()
+    def __private_static_method():
+        """Simulates a long-running private static method.
+
+        Inputs:
+            None
+        """
+        ...
 
 
 # 5. Main function which will call the GenericWorker class
-async def main():
+def main():
     """
     Main function to start the process.
 
     This function creates an instance of the GenericWorker class and starts the process.
     """
+    """Main function to test all methods."""
+    # Create an instance of GenericWorker
     worker = GenericWorker()
+
+    # Testing instance methods
     worker.start_process()
+    # worker._protected_method()
+    # worker._GenericWorker__private_method()
+    #
+    # # Testing class methods
+    # GenericWorker.example_class_method()
+    # GenericWorker._protected_class_method()
+    # worker._GenericWorker__private_class_method()
+    #
+    # # Testing static methods
+    # GenericWorker.example_static_method()
+    # GenericWorker._protected_static_method()
+    # worker._GenericWorker__private_static_method()
 
 # Running the asynchronous main function
 if __name__ == "__main__":
-    asyncio.run(main())
+    main()
