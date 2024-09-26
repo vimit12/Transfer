@@ -1,3 +1,68 @@
+"""
+Script Name: boilerplate.py
+
+Description:
+    This is a boilerplate script that can be leveraged for various reusable components such as:
+
+    - **Custom Loggers**: A class that sets up logging for capturing detailed logs for debugging and monitoring.
+    - **AWS Exception Class**: A custom exception class designed to handle AWS-specific automation errors.
+    - **TimeLogger**: A decorator to measure and log the execution time of methods or functions.
+    - **GenericWorker Class**: A template class where actual work starts, providing functionality for different types of tasks.
+
+    Each of these components can be reused in future projects by extending or modifying them based on specific needs. You can define how these are used later in your program.
+
+Usage:
+    Run this script directly to see the example usages of the various components:
+
+        $ python boilerplate.py
+
+    For integration into other scripts, copy and customize the specific classes as needed.
+
+Requirements:
+    - boto3
+    - rich
+    - Python 3.x
+
+Attributes:
+    - AWSLogger: Custom logger class for logging various levels of events (info, debug, error).
+    - AWSCustomError: Custom exception handler for AWS-specific errors with traceback details.
+    - TimeLogger: Decorator class to measure and display function execution times.
+    - GenericWorker: A class template for performing tasks, equipped with logging and timing features.
+
+Classes:
+    - AWSLogger: Sets up and configures logging to both the console and a log file.
+    - AWSCustomError: Provides a custom error with detailed traceback information.
+    - TimeLogger: Measures execution time of methods or functions.
+    - GenericWorker: A worker class where task execution happens and logging/timing are applied.
+
+Error Handling:
+    Handles exceptions for AWS operations, logs detailed error messages, and captures tracebacks for debugging.
+
+Imports:
+    - boto3: AWS SDK for Python for making API calls to AWS services.
+    - logging: For logging detailed execution info and errors.
+    - rich: For beautifully formatted console output.
+    - traceback: For capturing detailed error tracebacks.
+    - functools: For applying decorators like TimeLogger.
+
+Examples:
+    The script contains an example of how to use the `GenericWorker` class, which starts the process with logging and timing enabled.
+
+Author:
+    Vimit
+
+Date:
+    2024-09-26
+
+Version:
+    1.0
+
+License:
+    SRE Novartis
+"""
+
+
+
 import asyncio
 import boto3
 import logging
@@ -182,7 +247,20 @@ class TimeLogger:
             end_time = time.time()  # Record end time
             execution_time = end_time - start_time  # Calculate execution time
 
-            panel = Panel(f'Execution time of [bold]{func.__name__}[/bold]: {execution_time:.4f} seconds',
+            # Convert execution time to appropriate units
+            if execution_time >= 3600:  # If over an hour, convert to hours
+                hours = execution_time // 3600
+                minutes = (execution_time % 3600) // 60
+                seconds = execution_time % 60
+                formatted_time = f'{int(hours)} hr {int(minutes)} min {seconds:.4f} sec'
+            elif execution_time >= 60:  # If over a minute, convert to minutes
+                minutes = execution_time // 60
+                seconds = execution_time % 60
+                formatted_time = f'{int(minutes)} min {seconds:.4f} sec'
+            else:  # If under a minute, show seconds
+                formatted_time = f'{execution_time:.4f} sec'
+
+            panel = Panel(f'Execution time of [bold]{func.__name__}[/bold]: {formatted_time}',
                 title=f"Execution Time - {func.__name__}", border_style="cyan")
             console.print(panel)  # Display execution time in a panel
             return result
@@ -345,6 +423,6 @@ def main():
     # GenericWorker._protected_static_method()
     # worker._GenericWorker__private_static_method()
 
-# Running the asynchronous main function
+# Running the main function
 if __name__ == "__main__":
     main()
