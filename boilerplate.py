@@ -58,7 +58,7 @@ Version:
     1.0
 
 License:
-    SRE Novartis
+    __VIMIT__
 """
 
 
