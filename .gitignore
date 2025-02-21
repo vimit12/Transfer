@@ -1,0 +1,101 @@
+# General Python ignores
+__pycache__/
+*.py[cod]
+*.so
+*.pyd
+*.dll
+*.dylib
+*.egg-info/
+*.dist-info/
+.Python
+.env
+.venv/
+venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Poetry & Pipenv
+poetry.lock
+Pipfile
+Pipfile.lock
+
+# Virtual environments
+env/
+venv/
+ENV/
+.virtualenvs/
+.mypy_cache/
+.pytest_cache/
+.coverage
+.tox/
+.nox/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Logs & Dumps
+*.log
+*.out
+*.err
+dump.rdb
+nohup.out
+debug.log
+
+# Database & Caches
+db.sqlite3
+instance/
+*.sqlite3
+*.db
+*.pdb
+*.pkl
+*.pickle
+*.h5
+*.hdf5
+*.jsonl
+
+# PyCharm ignores
+.idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+.idea/workspace.xml
+.idea/tasks.xml
+.idea/dictionaries
+.idea/shelf/
+.idea/httpRequests/
+
+# VS Code ignores
+.vscode/
+.vscode/settings.json
+.vscode/tasks.json
+.vscode/launch.json
+.vscode/extensions.json
+.vscode/c_cpp_properties.json
+.vscode/jsconfig.json
+.vscode/pythonpath.json
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+*.swp
+*.swo
+*.swn
+*.bak
+
+# Docker
+docker-compose.override.yml
+docker-compose.override.yaml
+
+# Terraform & Cloud
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# Node.js & Frontend (if applicable)
+node_modules/
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+pnpm-debug.log
