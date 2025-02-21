@@ -35,6 +35,8 @@ from PyQt6.QtWidgets import (
 from openpyxl.utils import quote_sheetname
 from openpyxl.utils import get_column_letter
 from openpyxl import Workbook
+from dateutil import parser
+from datetime import datetime
 
 
 HOLIDAY_LIST_2024 = [
@@ -135,10 +137,23 @@ def get_month_details(month_name, year):
 
     return month_details, month_number
 
+def date_calculation(date):
+    # Check if the date is already a datetime object
+    if isinstance(date, datetime):
+        date_obj = date
+    else:
+        # Parse the date string or timestamp
+        date_obj = parser.parse(str(date))
 
+    # Extract the day, month, and year
+    day = date_obj.day
+    month = date_obj.month
+    year = date_obj.year
+
+    return day, month, year
 # add validation of month, like if use data is for april and month is may
-# :: TODO calculation for individual user - billable days - fixed
-# :: TODO exclude date cal for holiday days if user has marked the attendance
+# :: TODO calculation for individual user - billable days - fixed - done
+# :: TODO exclude date cal for holiday days if user has marked the attendance - done
 def generate_excel(
     month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list, progress_bar
 ):
@@ -172,6 +187,7 @@ def generate_excel(
         progress_step = 0
         step = 100/attendance_len
         for new_data in selected_row:
+            start_date, end_date, sd, sm, sy, ed, em, ey, sm_flag, em_flag = (None, )* 10
             billable_days = 0
             weekends = 0
             total_working_days = 0
@@ -180,6 +196,20 @@ def generate_excel(
             public_holiday = 0
             mismatch_date = []
             name = preprocess_name(new_data.get("Rsname"))
+            start_date, end_date = name_mapping[name][2:] if  name_mapping.get(name) else (None, )*2
+
+            if start_date:
+                sd, sm, sy=date_calculation(start_date)
+
+                sm = f"{sm:02}" if sm < 10 else sm
+
+                sm_flag = sm == month_number
+            
+            if end_date:
+                ed, em, ey = date_calculation(end_date)
+                em = f"{em:02}" if em < 10 else em
+                em_flag = em == month_number
+
             for week in month_details:
                 for day in week:
                     if day:
@@ -245,6 +275,22 @@ def generate_excel(
                             (dt, day_name[:3], dt_status, is_weekend_or_leave, "", "", "", "")
                             ('1-Jun', 'Thu', 1, '', '', '', '', '')
                         """
+                        if sm_flag and not em_flag:
+                            if date < sd:
+                                dt_status = 0
+                                total_working_days -= 1
+                                
+                        
+                        if em_flag and not sm_flag:
+                            if date > ed:
+                                dt_status = 0
+                                total_working_days -= 1
+                        
+                        if em_flag and sm_flag:
+                            if  date > ed or  date < sd:
+                                dt_status = 0
+                                total_working_days -= 1
+
                         data_model.append(
                             (
                                 dt,
@@ -264,6 +310,7 @@ def generate_excel(
             # print("WEEKENDS ====>", weekends)
             # print("TOTAL WORKING DAYS ====>", total_working_days)
             # print("LEAVE TAKEN ====>", leave_taken)
+            # print("-"*20)
             # print("PUBLIC HOLIDAY ====>", public_holiday)
             point_of_contact = (
                 name_mapping[name][1] if name_mapping.get(name) else "xxxxxxx"
@@ -818,7 +865,7 @@ class MainWindow(QMainWindow):
             title = "About"
         
         if not message:
-             message="This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit."
+             message="This tool is proprietary to Hitachi Digital Solution.\n\n\n\t - Developed by Vimit."
 
         QMessageBox.information(
             self,
@@ -831,7 +878,7 @@ class MainWindow(QMainWindow):
             title = "About"
         
         if not message:
-             message="This tool is proprietary to Hitachi Vantara Digital Solution.\n\n\n\t - Developed by Vimit."
+             message="This tool is proprietary to Hitachi Digital Solution.\n\n\n\t - Developed by Vimit."
 
         QMessageBox.warning(
             self,
@@ -1093,24 +1140,23 @@ class MainWindow(QMainWindow):
             item["Total Available Billable Days"] for item in self.summary_tab
         )
         total_actual_billable_days = sum(
-            item["Total Actual Billable Days (Including service credit)"]
+            item["Total Actual Billable Days (Including Buffer Resources)"]
             for item in self.summary_tab
         )
         total_service_credit_days = sum(
             item["Service Credit Days"] for item in self.summary_tab
         )
-
+        print("SELECTE MONTH ==>", self.selected_month[:3])
         # Add totals dictionary
         total_dict = {
             "Role": "Total",
             "No of Resource": total_no_of_resource,
-            "APR'24 Working Days": "",  # Typically, working days would not be summed.
+            f"{self.selected_month[:3].upper()}'24 Working Days": "",  # Typically, working days would not be summed.
             "Total Available Billable Days": total_available_billable_days,
-            "Total Actual Billable Days (Including service credit)": total_actual_billable_days,
+            "Total Actual Billable Days (Including Buffer Resources)": total_actual_billable_days,
             "Service Credit Days": total_service_credit_days,
-            "Earn-Back Days": total_actual_billable_days
-            - total_available_billable_days
-            - total_service_credit_days,
+            "Earn-Back Days": total_available_billable_days
+            - total_actual_billable_days,
         }
         self.summary_tab.append(total_dict)
 
@@ -1135,7 +1181,7 @@ class MainWindow(QMainWindow):
                         wrap_text=True, horizontal="center", vertical="center"
                     )
                 )
-            elif value in ["Total Actual Billable Days (Including service credit)"]:
+            elif value in ["Total Actual Billable Days (Including Buffer Resources)"]:
                 sheet.column_dimensions[cell.column_letter].width = 40
                 cell.alignment = (
                     Alignment(wrap_text=True, horizontal="left", vertical="center")
@@ -1229,15 +1275,19 @@ class MainWindow(QMainWindow):
             # Calculate totals
             total_no_of_resource = len(values) - 1
             total_available_billable_days = (len(values) - 1)* (TOTAL_WORKING_DAY)
-            total_actual_billable_days = values[-1].get("Total Number of Billable Days") + values[-1].get("Service Credit Pool Days")
+            
+            #modifcation after feedback 
+            # total_actual_billable_days = values[-1].get("Total Number of Billable Days") + values[-1].get("Service Credit Pool Days")
+            total_actual_billable_days = values[-1].get("Total Number of Billable Days") - values[-1].get("Service Credit Pool Days")
+
             total_service_credit_days = values[-1].get("Service Credit Pool Days")
 
             total_dict = {
                 "Role": key,
                 "No of Resource": total_no_of_resource,
-                "APR'24 Working Days": TOTAL_WORKING_DAY,  # Typically, working days would not be summed.
+                f"{self.selected_month[:3].upper()}'24 Working Days": TOTAL_WORKING_DAY,  # Typically, working days would not be summed.
                 "Total Available Billable Days": total_available_billable_days,
-                "Total Actual Billable Days (Including service credit)": total_actual_billable_days,
+                "Total Actual Billable Days (Including Buffer Resources)": total_actual_billable_days,
                 "Service Credit Days": total_service_credit_days,
                 "Earn-Back Days":""
             }
@@ -1344,7 +1394,7 @@ class MainWindow(QMainWindow):
 
         wb.save(self.file_name)
 
-    def non_compliance_resources(self, data, filename="non_complaince_user.xlsx"):
+    def non_compliance_resources(self, data, filename="non_complaint_user.xlsx"):
 
         # Create a new workbook and select the active worksheet
         wb = openpyxl.Workbook()
@@ -1566,6 +1616,7 @@ class MainWindow(QMainWindow):
                 sheet_name = "PublicCloudResourceList"
                 # Read the Excel file into a DataFrame
                 df = pd.read_excel(filepath, sheet_name=sheet_name)
+                df.replace({np.nan: None}, inplace = True)
 
                 # Convert the DataFrame to a list of dictionaries
                 self.raw_category_list = df.to_dict(orient="records")
