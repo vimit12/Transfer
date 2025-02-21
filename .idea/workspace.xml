@@ -5,30 +5,12 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="32fcb8c1-5060-4ff9-934b-4453074c5d25" name="Changes" comment="">
-      <change beforePath="$PROJECT_DIR$/043745.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/045879.html" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Archive.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/Archive.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/instance_detail_tst.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/instance_details.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/rds_detail_tst.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/Monitoring Solutions/volume_details.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/boilerplate.py" beforeDir="false" afterPath="$PROJECT_DIR$/boilerplate.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_1.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_2.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_3.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_4.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_5.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/chunk_6.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/instance_detail_tst.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/instance_details.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/omf-service-OMF_GQA.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/omf-service-backup_gqa_28-May-2024.zip" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/rds_detail_tst.txt" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/rich.py" beforeDir="false" afterPath="$PROJECT_DIR$/rich_test.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/sample" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/sample.py" beforeDir="false" afterPath="$PROJECT_DIR$/sample.py" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/volume_detail_tst.txt" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/material_theme_project_new.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/SNAPSHOT_DETAILS.zip" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/Sample.xlsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/outlook_HD.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/tailwind.html" beforeDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -38,36 +20,36 @@
   <component name="Git.Settings">
     <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
   </component>
-  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
-  "lastFilter": {
-    "state": "OPEN",
-    "assignee": "vimit12"
+  <component name="GitHubPullRequestSearchHistory">{
+  &quot;lastFilter&quot;: {
+    &quot;state&quot;: &quot;OPEN&quot;,
+    &quot;assignee&quot;: &quot;vimit12&quot;
   }
-}]]></component>
-  <component name="GithubPullRequestsUISettings"><![CDATA[{
-  "selectedUrlAndAccountId": {
-    "url": "https://github.com/vimit12/Transfer.git",
-    "accountId": "7688ebf3-082d-4456-ab50-1694230078b2"
+}</component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/vimit12/Transfer.git&quot;,
+    &quot;accountId&quot;: &quot;7688ebf3-082d-4456-ab50-1694230078b2&quot;
   }
-}]]></component>
-  <component name="ProjectColorInfo"><![CDATA[{
-  "associatedIndex": 2
-}]]></component>
+}</component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 2
+}</component>
   <component name="ProjectId" id="2mMoqF8gmI8MjinZV8WMaDu05WA" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
   </component>
-  <component name="PropertiesComponent"><![CDATA[{
-  "keyToString": {
-    "Python.boilerplate.executor": "Run",
-    "Python.sample.executor": "Run",
-    "RunOnceActivity.ShowReadmeOnStart": "true",
-    "git-widget-placeholder": "main",
-    "last_opened_file_path": "/Users/vimit/Desktop/Practice/Transfer",
-    "settings.editor.selected.configurable": "preferences.fileTypes"
+  <component name="PropertiesComponent">{
+  &quot;keyToString&quot;: {
+    &quot;Python.boilerplate.executor&quot;: &quot;Run&quot;,
+    &quot;Python.sample.executor&quot;: &quot;Run&quot;,
+    &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;git-widget-placeholder&quot;: &quot;main&quot;,
+    &quot;last_opened_file_path&quot;: &quot;/Users/vimit/Desktop/Practice/Transfer&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.fileTypes&quot;
   }
-}]]></component>
+}</component>
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
