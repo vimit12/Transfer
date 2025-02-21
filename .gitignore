@@ -55,6 +55,7 @@ instance/
 
 # PyCharm ignores
 .idea/
+*.xml
 *.iml
 *.ipr
 *.iws
