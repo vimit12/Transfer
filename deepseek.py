@@ -866,24 +866,25 @@ class MainWindow(QMainWindow):
     def create_home_page(self):
         page = QWidget()
         main_layout = QVBoxLayout(page)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(20)
+        main_layout.setContentsMargins(20, 15, 20, 15)
+        main_layout.setSpacing(15)
 
         # Year/Month Selection Group
         year_month_group = QGroupBox("Select Month & Year")
         year_month_group.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #cccccc;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 15px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 3px;
-            }
-        """)
+                QGroupBox {
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    margin-top: 8px;
+                    padding-top: 12px;
+                }
+                QGroupBox::title {
+                    subcontrol-origin: margin;
+                    left: 10px;
+                    color: #118370;
+                    font-weight: 500;
+                }
+            """)
 
         # Layout for month and year
         date_layout = QHBoxLayout(year_month_group)
@@ -957,15 +958,14 @@ class MainWindow(QMainWindow):
         holiday_group = QGroupBox("Holiday Management")
         holiday_group.setStyleSheet("""
                 QGroupBox {
-                    border: 1px solid #cccccc;
-                    border-radius: 5px;
-                    margin-top: 10px;
-                    padding-top: 15px;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    margin-top: 8px;
+                    padding-top: 12px;
                 }
                 QGroupBox::title {
-                    subcontrol-origin: margin;
-                    left: 10px;
-                    padding: 0 3px;
+                    color: #118370;
+                    font-weight: 500;
                 }
             """)
         holiday_layout = QVBoxLayout(holiday_group)
@@ -1029,20 +1029,19 @@ class MainWindow(QMainWindow):
         self.format_info_btn.setStyleSheet(button_style + "background-color: #aae0a4; color: black;")
 
         # Category Information Section
-        category_group = QGroupBox("Please Upload User Category")
+        category_group = QGroupBox("User Categories")
         category_group.setStyleSheet("""
-                        QGroupBox {
-                            border: 1px solid #cccccc;
-                            border-radius: 5px;
-                            margin-top: 10px;
-                            padding-top: 15px;
-                        }
-                        QGroupBox::title {
-                            subcontrol-origin: margin;
-                            left: 10px;
-                            padding: 0 3px;
-                        }
-                    """)
+                QGroupBox {
+                    border: 1px solid #e0e0e0;
+                    border-radius: 6px;
+                    margin-top: 8px;
+                    padding-top: 12px;
+                }
+                QGroupBox::title {
+                    color: #118370;
+                    font-weight: 500;
+                }
+            """)
         category_layout = QVBoxLayout(category_group)
         category_layout.setContentsMargins(10, 15, 10, 10)
         category_layout.setSpacing(8)
@@ -1075,17 +1074,21 @@ class MainWindow(QMainWindow):
         # Main group box
         groupBox = QGroupBox("Please enter raw attendance file to generate Attendance Billing Report")
         groupBox.setStyleSheet("""
-            QGroupBox {
-                border: 1px solid #cccccc;
-                border-radius: 5px;
-                margin-top: 10px;
-                padding-top: 15px;  /* Reduced from 15px */
+                QGroupBox {
+                border: 1px solid #e0e0e0;
+                border-radius: 6px;
+                margin-top: 8px;
+                padding-top: 12px;
             }
             QGroupBox::title {
-                subcontrol-origin: margin;
-                left: 10px;
-                padding: 0 3px;
+                color: #118370;
+                font-weight: 500;
             }
+            # QGroupBox::title {
+            #     subcontrol-origin: margin;
+            #     left: 10px;
+            #     padding: 0 3px;
+            # }
         """)
         group_layout = QVBoxLayout(groupBox)
         group_layout.setContentsMargins(10, 15, 10, 10)  # Reduced top/bottom margins (was 10,15,10,10)
@@ -1118,14 +1121,42 @@ class MainWindow(QMainWindow):
         group_layout.addLayout(main_input_row)
 
         # Status message system
+        # Create the GroupBox
+        statusBox = QGroupBox("Status Message")
+        statusBox.setStyleSheet("""
+                        QGroupBox {
+                        border: 1px solid #e0e0e0;
+                        border-radius: 6px;
+                        margin-top: 8px;
+                        padding-top: 12px;
+                    }
+                    QGroupBox::title {
+                        color: #118370;
+                        font-weight: 500;
+                    }
+                    # QGroupBox::title {
+                    #     subcontrol-origin: margin;
+                    #     left: 10px;
+                    #     padding: 0 3px;
+                    # }
+                """)
+        status_group_box = QVBoxLayout(statusBox)
+        status_group_box.setContentsMargins(10, 15, 10, 10)  # Reduced top/bottom margins (was 10,15,10,10)
+        status_group_box.setSpacing(8)  # Reduced spacing between widgets
+
+        # File input box
+        status_input_row = QHBoxLayout()
+        status_input_row.setSpacing(8)
+
         self.msg_label = QLabel()
         self.msg_label.setObjectName("statusMsg")
         self.msg_label.setStyleSheet("""
                 QLabel {
-                    padding: 8px;
+                    padding: 10px;
                     border-radius: 4px;
-                    margin: 5px 0;
+                    margin: 8px 0;
                     font-size: 12px;
+                    min-height: 40px;
                 }
                 QLabel[messageType="error"] {
                     color: #dc3545;
@@ -1146,6 +1177,10 @@ class MainWindow(QMainWindow):
         self.msg_label.setWordWrap(True)
         self.msg_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.msg_label.hide()
+
+        status_input_row.addWidget(self.msg_label)
+        status_group_box.addLayout(status_input_row)
+
         # # Show error message (red)
         # self.show_message("Error: File not found!", "error", 5000)
         #
@@ -1156,8 +1191,11 @@ class MainWindow(QMainWindow):
         # self.show_message("Processing completed", "info", 2000)
 
         # Progress Bar
-        progress_input_row = QHBoxLayout()
-        progress_input_row.setSpacing(8)
+        # progress_input_row = QHBoxLayout()
+        # progress_input_row.setSpacing(8)
+        progress_group = QWidget()
+        progress_layout = QVBoxLayout(progress_group)
+        progress_layout.setContentsMargins(0, 10, 0, 0)
         
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("progress_bar")
@@ -1178,9 +1216,14 @@ class MainWindow(QMainWindow):
                 }
             """)
 
-        progress_input_row.addWidget(self.progress_bar)
-        
+        # progress_input_row.addWidget(self.progress_bar)
+        progress_layout.addWidget(self.progress_bar)
+
+
         # Generate Button
+        generate_container = QHBoxLayout()
+        generate_container.addStretch()
+
         self.generateButton = QPushButton("Generate Report")
         self.generateButton.setObjectName("generateButton")
         self.generateButton.setFixedHeight(35)
@@ -1200,6 +1243,9 @@ class MainWindow(QMainWindow):
                     color: #666666;
                 }
             """)
+        generate_container.addWidget(self.generateButton)
+
+        progress_layout.addLayout(generate_container)
 
         # Create button container for alignment
         button_container = QHBoxLayout()
@@ -1215,11 +1261,23 @@ class MainWindow(QMainWindow):
 
         main_layout.addWidget(self.progress_bar)
         main_layout.addLayout(button_container)
-        main_layout.addWidget(self.msg_label)
+        # main_layout.addWidget(self.msg_label)
+        main_layout.addWidget(statusBox)
 
         main_layout.addStretch()
         # Update progress
         self.progress_bar.setValue(50)  # 0-100%
+        # Set fixed height for message label to prevent layout shift
+        self.msg_label.setFixedHeight(0)
+
+        def adjust_message_height():
+            if self.msg_label.isVisible():
+                self.msg_label.setFixedHeight(self.msg_label.sizeHint().height())
+            else:
+                self.msg_label.setFixedHeight(0)
+
+        self.msg_label.showEvent = lambda e: adjust_message_height()
+        self.msg_label.hideEvent = lambda e: adjust_message_height()
 
         return page
 
