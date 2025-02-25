@@ -879,6 +879,37 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
+    def add_data_resource_tab(self, df):
+        required_columns = {"Full Name", "521 ID", "Point of Contact", "Team", "Start Date", "End Date"}
+        if not required_columns.issubset(df.columns):
+            QMessageBox.critical(self, "Error", "Invalid file format. Ensure correct column names.")
+            return
+
+        cursor = self.db_connection.cursor()
+        for _, row in df.iterrows():
+            cursor.execute("SELECT COUNT(*) FROM resource_mapping WHERE id_521 = ?", (row["521 ID"],))
+            exists = cursor.fetchone()[0] > 0
+
+            if exists:
+                # ✅ Update the existing record
+                cursor.execute("""
+                                UPDATE resource_mapping 
+                                SET full_name = ?, point_of_contact = ?, team = ?, start_date = ?, end_date = ?
+                                WHERE id_521 = ?
+                            """, (
+                    clean_string(row["Full Name"]), row["Point of Contact"], row["Team"], clean_date(row["Start Date"]),
+                    clean_date(row["End Date"]), row["521 ID"]))
+            else:
+                # ✅ Insert new record
+                cursor.execute("""
+                                INSERT INTO resource_mapping (full_name, id_521, point_of_contact, team, start_date, end_date)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            """, (clean_string(row["Full Name"]), row["521 ID"], row["Point of Contact"], row["Team"],
+                                  clean_date(row["Start Date"]), clean_date(row["End Date"])))
+
+        self.db_connection.commit()
+        cursor.close()
+
     def choose_file(self, parent_dialog):
         """Opens a file dialog to select a file and imports its data"""
         file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "CSV/Excel Files (*.csv *.xlsx *.xls)")
@@ -891,35 +922,8 @@ class MainWindow(QMainWindow):
             else:  # For .xlsx files, read only "PublicCloudResourceList" sheet
                 df = pd.read_excel(file_path, sheet_name="PublicCloudResourceList")
 
-            required_columns = {"Full Name", "521 ID", "Point of Contact", "Team", "Start Date", "End Date"}
-            if not required_columns.issubset(df.columns):
-                QMessageBox.critical(self, "Error", "Invalid file format. Ensure correct column names.")
-                return
+            self.add_data_resource_tab(df)
 
-            cursor = self.db_connection.cursor()
-            for _, row in df.iterrows():
-                cursor.execute("SELECT COUNT(*) FROM resource_mapping WHERE id_521 = ?", (row["521 ID"],))
-                exists = cursor.fetchone()[0] > 0
-
-                if exists:
-                    # ✅ Update the existing record
-                    cursor.execute("""
-                        UPDATE resource_mapping 
-                        SET full_name = ?, point_of_contact = ?, team = ?, start_date = ?, end_date = ?
-                        WHERE id_521 = ?
-                    """, (
-                        clean_string(row["Full Name"]), row["Point of Contact"], row["Team"], clean_date(row["Start Date"]),
-                        clean_date(row["End Date"]), row["521 ID"]))
-                else:
-                    # ✅ Insert new record
-                    cursor.execute("""
-                        INSERT INTO resource_mapping (full_name, id_521, point_of_contact, team, start_date, end_date)
-                        VALUES (?, ?, ?, ?, ?, ?)
-                    """, (clean_string(row["Full Name"]), row["521 ID"], row["Point of Contact"], row["Team"],
-                          clean_date(row["Start Date"]), clean_date(row["End Date"])))
-
-            self.db_connection.commit()
-            cursor.close()
             QMessageBox.information(self, "Success", "Resource mapping data uploaded successfully!")
 
         except Exception as e:
@@ -1497,12 +1501,57 @@ class MainWindow(QMainWindow):
                 cleaned_dict[clean_key] = value
             cleaned_list.append(cleaned_dict)
         return cleaned_list
+
+    def fetch_all_resource_mappings(self):
+        """Fetch all records from the resource_mapping table"""
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT * FROM resource_mapping")
+            records = cursor.fetchall()
+
+            # Get column names
+            columns = [desc[0] for desc in cursor.description]
+
+            # Convert to a list of dictionaries
+            result = [dict(zip(columns, row)) for row in records]
+
+            # Convert the DataFrame to a list of dictionaries
+            self.raw_category_list = result
+
+            # Standardize the "Full Name" field by removing commas and spaces
+            for item in self.raw_category_list:
+                name = item['full_name']
+                team = item["team"]
+
+                # Check if the team is already in the dictionary
+                if team in self.category:
+                    self.category[team].append(name)
+                else:
+                    self.category[team] = [name]
+
+                self.name_mapping.update(
+                    {name: [item['id_521'], item['point_of_contact'], item['start_date'], item['end_date']]})
+
+
+            for k, v in self.category.items():
+                temp_list = sorted(v)
+                self.category[k] = temp_list
+                self.name_order_list.extend(temp_list)
+
+            return True
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            return False
+        finally:
+            if cursor:
+                cursor.close()
+
     def generate_report(self):
 
-        if not self.raw_category_list or not self.category or not self.name_mapping or not self.name_order_list:
-            # Show error message (red)
-            self.show_message("Error: Please select proper category file!", "error", 5000)
-            return None
+        if not all([self.raw_category_list, self.category, self.name_mapping, self.name_order_list]):
+            if not (result := self.fetch_all_resource_mappings()):
+                self.show_message("Error: Please select proper category file!", "error", 5000)
+                return None
 
         # Implement report generation logic here
         self.month_combo.currentText()
@@ -1616,7 +1665,7 @@ class MainWindow(QMainWindow):
                 # Read the Excel file into a DataFrame
                 df = pd.read_excel(filepath, sheet_name=sheet_name)
                 df.replace({np.nan: None}, inplace=True)
-
+                self.add_data_resource_tab(df)
                 # Convert the DataFrame to a list of dictionaries
                 self.raw_category_list = df.to_dict(orient="records")
 
