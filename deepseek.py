@@ -27,6 +27,8 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.merge import MergeCell, MergeCells
 import numpy as np
+from pandas._libs.tslibs.nattype import NaTType
+
 
 
 # ======================
@@ -212,6 +214,14 @@ QPushButton:hover {
 
 TOTAL_WORKING_DAY = 0
 
+
+def clean_date(value):
+    """Convert NaT to None and Timestamps to string format for database insertion"""
+    if isinstance(value, NaTType):
+        return None  # Convert NaT to None
+    if isinstance(value, pd.Timestamp):
+        return value.strftime("%Y-%m-%d")  # Convert Timestamp to 'YYYY-MM-DD' format
+    return value  # Return as is if it's already a string
 
 def clean_string(s):
     # Remove text inside brackets (e.g., "[C]", "[c]", "[text]"), commas, and hyphens
@@ -621,162 +631,20 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Billing Report Generator")
-        self.setGeometry(100, 100, 900, 600)
-        self.setFixedSize(900, 600)
+        self.setGeometry(100, 100, 1000, 700)
+        self.setFixedSize(1000, 700)
         self.current_theme = "Light"
         self.themes = ["Dark", "Light", "System"]
         self.db_connection = None
         self.current_table = None
         self.current_year = str(datetime.now().year)  # Add this line
         print(f"Current year : {self.current_year}")
+        self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
+        self.category, self.name_mapping = {}, {}  # ✅ Separate dictionaries
+        self.HOLIDAY_LIST = []
 
         self.init_ui()
         self.initialize_database()
-
-    def initialize_database(self):
-        """Initialize database connection and required tables"""
-        try:
-            self.db_connection = sqlite3.connect('billing.db')
-            cursor = self.db_connection.cursor()
-
-            # Check existing tables
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            existing_tables = [table[0].lower() for table in cursor.fetchall()]
-
-            # Table creation queries with corrected syntax
-            tables = {'holiday': '''
-                    CREATE TABLE IF NOT EXISTS holiday (
-                        year TEXT PRIMARY KEY,
-                        holidays TEXT
-                    )
-                ''', 'user': '''
-                    CREATE TABLE IF NOT EXISTS user (
-                        name TEXT,
-                        month TEXT,
-                        year TEXT,
-                        attendance_report TEXT,
-                        PRIMARY KEY (name, month, year)
-                    )
-                ''', 'user_leave': '''
-                    CREATE TABLE IF NOT EXISTS user_leave (
-                        name TEXT,
-                        year TEXT,
-                        month TEXT,
-                        leave_days TEXT,
-                        PRIMARY KEY (name, year, month)
-                    )
-                '''}
-
-            # Create missing tables
-            created_tables = []
-            for table_name, query in tables.items():
-                if table_name not in existing_tables:
-                    try:
-                        cursor.execute(query)
-                        created_tables.append(table_name)
-                    except sqlite3.Error as e:
-                        print(f"Error creating table {table_name}: {e}")
-
-            self.db_connection.commit()
-
-            # Update database page with table list
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
-            all_tables = [table[0] for table in cursor.fetchall()]
-            self.update_database_page(all_tables, created_tables)
-
-            # Check for current year holidays
-            cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))
-            if not cursor.fetchone():
-                self.show_holiday_import_dialog()
-
-        except sqlite3.Error as e:
-            error_msg = f"Database error: {str(e)}"
-            print(error_msg)
-            if hasattr(self, 'db_status_label'):
-                self.db_status_label.setText(error_msg)
-        finally:
-            if cursor:
-                cursor.close()
-
-    def show_holiday_import_dialog(self):
-        """Show holiday import prompt and handle file selection"""
-        reply = QMessageBox.question(self, "Holiday Data Required",
-            f"No holidays found for {self.current_year}. Would you like to import from Excel?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
-        if reply == QMessageBox.StandardButton.Yes:
-            self.import_holidays_from_excel()
-
-    def import_holidays_from_excel(self):
-        """Handle Excel import with datetime-formatted cells"""
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "", "Excel Files (*.xlsx *.xls)")
-
-        if not file_path:
-            return
-
-        try:
-            wb = load_workbook(filename=file_path)
-            sheet = wb.active
-
-            # Get year from first cell
-            year_cell = sheet['A1'].value
-            if not isinstance(year_cell, int) or len(str(year_cell)) != 4:
-                raise ValueError("First cell must contain a 4-digit year (e.g., 2025)")
-            excel_year = str(year_cell)
-
-            # Check for existing year in database
-            cursor = self.db_connection.cursor()
-            cursor.execute("SELECT year FROM holiday WHERE year = ?", (excel_year,))
-            if cursor.fetchone():
-                QMessageBox.warning(self, "Data Exists", f"Holidays for {excel_year} already exist")
-                return
-
-            # Process date cells
-            holidays = []
-            for row in sheet.iter_rows(min_row=2, values_only=True):
-                cell_value = row[0]
-                if not cell_value:break
-
-                # Handle different cell types
-                if isinstance(cell_value, datetime):
-                    date_obj = cell_value
-                else:
-                    try:
-                        # Try parsing string format
-                        date_obj = datetime.strptime(str(cell_value), "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        raise ValueError(f"Invalid date format: {cell_value}")
-
-                # Validate year match
-                if str(date_obj.year) != excel_year:
-                    raise ValueError(f"Date {date_obj} doesn't match Excel year {excel_year}")
-
-                holidays.append(date_obj.strftime("%Y-%m-%d"))
-
-            # Insert into database
-            cursor.execute("INSERT INTO holiday (year, holidays) VALUES (?, ?)", (excel_year, json.dumps(holidays)))
-            self.db_connection.commit()
-
-            QMessageBox.information(self, "Import Successful", f"Added {len(holidays)} holidays for {excel_year}")
-
-        except Exception as e:
-            QMessageBox.critical(self, "Import Error", f"Failed to import holidays:\n{str(e)}")
-        finally:
-            if cursor:
-                cursor.close()
-
-    def update_database_page(self, all_tables, new_tables=None):
-        """Update the database page with current table information"""
-        self.db_table_list.clear()
-        self.db_table_list.addItems(all_tables)
-
-        status_text = f"Loaded {len(all_tables)} tables"
-        if new_tables:
-            status_text += f"\nCreated new tables: {', '.join(new_tables)}"
-
-        # Show status message in home page for demo
-        if hasattr(self, 'home_status_label'):
-            self.home_status_label.setText(status_text)
 
     def init_ui(self):
         # Create custom title bar controls
@@ -830,9 +698,10 @@ class MainWindow(QMainWindow):
 
         self.btn_home = QPushButton("🏠 Home")
         self.btn_database = QPushButton("📁 Database")
+        self.btn_load_data = QPushButton("📑 Load Dataset")  # ✅ New Button
         self.btn_about = QPushButton("ℹ️ About")
 
-        for btn in [self.btn_home, self.btn_database, self.btn_about]:
+        for btn in [self.btn_home, self.btn_database, self.btn_load_data, self.btn_about]:
             btn.setCheckable(True)
             btn.setFixedSize(130, 40)
             btn.setFont(QFont("Segoe UI", 10))
@@ -853,7 +722,8 @@ class MainWindow(QMainWindow):
         # Connect navigation
         self.btn_home.clicked.connect(lambda: self.switch_page(0))
         self.btn_database.clicked.connect(lambda: self.switch_page(1))
-        self.btn_about.clicked.connect(lambda: self.switch_page(2))
+        self.btn_load_data.clicked.connect(lambda: self.switch_page(2))  # ✅ New Page
+        self.btn_about.clicked.connect(lambda: self.switch_page(3))
 
     def init_pages(self):
         # ======================
@@ -861,7 +731,294 @@ class MainWindow(QMainWindow):
         # ======================
         self.stacked_widget.addWidget(self.create_home_page())
         self.stacked_widget.addWidget(self.create_database_page())
+        self.stacked_widget.addWidget(self.create_load_data_page())  # ✅ New Load Data Page
         self.stacked_widget.addWidget(self.create_about_page())
+
+
+    def initialize_database(self):
+        """Initialize database connection and required tables"""
+        try:
+            self.db_connection = sqlite3.connect('billing.db')
+            cursor = self.db_connection.cursor()
+
+            # Check existing tables
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
+            existing_tables = [table[0].lower() for table in cursor.fetchall()]
+
+            # Table creation queries with corrected syntax
+            tables = {'holiday': '''
+                    CREATE TABLE IF NOT EXISTS holiday (
+                        year TEXT PRIMARY KEY,
+                        holidays TEXT
+                    )
+                ''', 'user': '''
+                    CREATE TABLE IF NOT EXISTS user (
+                        name TEXT,
+                        month TEXT,
+                        year TEXT,
+                        attendance_report TEXT,
+                        PRIMARY KEY (name, month, year)
+                    )
+                ''', 'user_leave': '''
+                    CREATE TABLE IF NOT EXISTS user_leave (
+                        name TEXT,
+                        year TEXT,
+                        month TEXT,
+                        leave_days TEXT,
+                        PRIMARY KEY (name, year, month)
+                    )
+                ''', 'resource_mapping': '''
+                    CREATE TABLE IF NOT EXISTS resource_mapping (
+                        full_name TEXT,
+                        id_521 TEXT PRIMARY KEY,
+                        point_of_contact TEXT,
+                        team TEXT,
+                        start_date TEXT,
+                        end_date TEXT
+                    )
+                '''}
+
+            # Create missing tables
+            created_tables = []
+            for table_name, query in tables.items():
+                if table_name not in existing_tables:
+                    try:
+                        cursor.execute(query)
+                        created_tables.append(table_name)
+                    except sqlite3.Error as e:
+                        print(f"Error creating table {table_name}: {e}")
+
+            self.db_connection.commit()
+
+            # Update database page with table list
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
+            all_tables = [table[0] for table in cursor.fetchall()]
+
+            # Update dropdown
+            self.db_table_combo.clear()
+            self.db_table_combo.addItems(all_tables)
+
+            # Check for current year holidays
+            cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))
+            if not cursor.fetchone():
+                self.show_holiday_import_dialog()
+
+        except sqlite3.Error as e:
+            error_msg = f"Database error: {str(e)}"
+            print(error_msg)
+            if hasattr(self, 'db_status_label'):
+                self.db_status_label.setText(error_msg)
+        finally:
+            if cursor:
+                cursor.close()
+
+    def create_load_data_page(self):
+        """Creates the Load Data page with two card-like buttons"""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(20)
+
+        label = QLabel("Load Data")
+        label.setFont(QFont("Segoe UI", 14, QFont.Weight.Bold))
+        layout.addWidget(label)
+
+        button_layout = QHBoxLayout()
+
+        # Card 1
+        self.card1 = QPushButton("📥 Import Holiday Data")
+        self.card1.setFixedSize(250, 120)
+        self.card1.setStyleSheet(self.get_card_style())
+        self.card1.clicked.connect(self.import_holidays_from_excel)
+
+        # Card 2
+        self.card2 = QPushButton("📋 Upload Resource Mapping")
+        self.card2.setFixedSize(250, 120)
+        self.card2.setStyleSheet(self.get_card_style())
+        self.card2.clicked.connect(self.open_resource_popup)
+
+        button_layout.addWidget(self.card1)
+        button_layout.addWidget(self.card2)
+
+        layout.addLayout(button_layout)
+        layout.addStretch()
+
+        return page
+
+    def get_card_style(self):
+        """Returns the CSS style for card buttons"""
+        return """
+            QPushButton {
+                background-color: #F0F0F0;
+                border-radius: 8px;
+                font-size: 12pt;
+                font-weight: 500;
+            }
+            QPushButton:hover {
+                background-color: #E0E0E0;
+            }
+        """
+
+    def open_resource_popup(self):
+        """Opens a dialog for uploading resource mapping"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Upload Resource Mapping")
+        dialog.setFixedSize(400, 250)
+
+        layout = QVBoxLayout(dialog)
+        label = QLabel("Upload your resource mapping file (.csv or .xlsx)")
+        layout.addWidget(label)
+
+        file_btn = QPushButton("Choose File")
+        file_btn.clicked.connect(lambda: self.choose_file(dialog))
+        layout.addWidget(file_btn)
+
+        save_btn = QPushButton("Close")
+        save_btn.clicked.connect(dialog.accept)
+        layout.addWidget(save_btn)
+
+        dialog.exec()
+
+    def choose_file(self, parent_dialog):
+        """Opens a file dialog to select a file and imports its data"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select File", "", "CSV/Excel Files (*.csv *.xlsx *.xls)")
+        if not file_path:
+            return
+
+        try:
+            if file_path.endswith(".csv"):
+                df = pd.read_csv(file_path)
+            else:  # For .xlsx files, read only "PublicCloudResourceList" sheet
+                df = pd.read_excel(file_path, sheet_name="PublicCloudResourceList")
+
+            required_columns = {"Full Name", "521 ID", "Point of Contact", "Team", "Start Date", "End Date"}
+            if not required_columns.issubset(df.columns):
+                QMessageBox.critical(self, "Error", "Invalid file format. Ensure correct column names.")
+                return
+
+            cursor = self.db_connection.cursor()
+            for _, row in df.iterrows():
+                cursor.execute("SELECT COUNT(*) FROM resource_mapping WHERE id_521 = ?", (row["521 ID"],))
+                exists = cursor.fetchone()[0] > 0
+
+                if exists:
+                    # ✅ Update the existing record
+                    cursor.execute("""
+                        UPDATE resource_mapping 
+                        SET full_name = ?, point_of_contact = ?, team = ?, start_date = ?, end_date = ?
+                        WHERE id_521 = ?
+                    """, (
+                        clean_string(row["Full Name"]), row["Point of Contact"], row["Team"], clean_date(row["Start Date"]),
+                        clean_date(row["End Date"]), row["521 ID"]))
+                else:
+                    # ✅ Insert new record
+                    cursor.execute("""
+                        INSERT INTO resource_mapping (full_name, id_521, point_of_contact, team, start_date, end_date)
+                        VALUES (?, ?, ?, ?, ?, ?)
+                    """, (clean_string(row["Full Name"]), row["521 ID"], row["Point of Contact"], row["Team"],
+                          clean_date(row["Start Date"]), clean_date(row["End Date"])))
+
+            self.db_connection.commit()
+            cursor.close()
+            QMessageBox.information(self, "Success", "Resource mapping data uploaded successfully!")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to import file: {str(e)}")
+
+        parent_dialog.close()
+
+    def show_holiday_import_dialog(self):
+        """Show holiday import prompt and handle file selection"""
+        reply = QMessageBox.question(self, "Holiday Data Required",
+            f"No holidays found for {self.current_year}. Would you like to import from Excel?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if reply == QMessageBox.StandardButton.Yes:
+            self.import_holidays_from_excel()
+
+    def import_holidays_from_excel(self):
+        """Handle Excel import with datetime-formatted cells"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "", "Excel Files (*.xlsx *.xls)")
+
+        if not file_path:
+            return
+
+        try:
+            wb = load_workbook(filename=file_path)
+            sheet = wb.active
+
+            # Get year from first cell
+            year_cell = sheet['A1'].value
+            if not isinstance(year_cell, int) or len(str(year_cell)) != 4:
+                raise ValueError("First cell must contain a 4-digit year (e.g., 2025)")
+            excel_year = str(year_cell)
+
+            # Check for existing year in database
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT year FROM holiday WHERE year = ?", (excel_year,))
+            # if cursor.fetchone():
+            #     QMessageBox.warning(self, "Data Exists", f"Holidays for {excel_year} already exist")
+            #     return
+
+            exists = cursor.fetchone()
+
+            if exists:
+                confirm = QMessageBox.question(self, "Override Confirmation",
+                                               f"Holidays for {excel_year} already exist. Override?",
+                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                if confirm != QMessageBox.StandardButton.Yes:
+                    return
+
+            # Process date cells
+            holidays = []
+            for row in sheet.iter_rows(min_row=2, values_only=True):
+                cell_value = row[0]
+                if not cell_value:break
+
+                # Handle different cell types
+                if isinstance(cell_value, datetime):
+                    date_obj = cell_value
+                else:
+                    try:
+                        # Try parsing string format
+                        date_obj = datetime.strptime(str(cell_value), "%Y-%m-%d %H:%M:%S")
+                    except ValueError:
+                        raise ValueError(f"Invalid date format: {cell_value}")
+
+                # Validate year match
+                if str(date_obj.year) != excel_year:
+                    raise ValueError(f"Date {date_obj} doesn't match Excel year {excel_year}")
+
+                holidays.append(date_obj.strftime("%Y-%m-%d"))
+
+            # Insert into database
+            # cursor.execute("INSERT INTO holiday (year, holidays) VALUES (?, ?)", (excel_year, json.dumps(holidays)))
+                # Insert/Update data
+                cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
+                               (excel_year, json.dumps(holidays)))
+            self.db_connection.commit()
+
+            QMessageBox.information(self, "Import Successful", f"Added {len(holidays)} holidays for {excel_year}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Import Error", f"Failed to import holidays:\n{str(e)}")
+        finally:
+            if cursor:
+                cursor.close()
+
+    def update_database_page(self, all_tables, new_tables=None):
+        """Update the database page with current table information"""
+        self.db_table_list.clear()
+        self.db_table_list.addItems(all_tables)
+
+        status_text = f"Loaded {len(all_tables)} tables"
+        if new_tables:
+            status_text += f"\nCreated new tables: {', '.join(new_tables)}"
+
+        # Show status message in home page for demo
+        if hasattr(self, 'home_status_label'):
+            self.home_status_label.setText(status_text)
+
 
     def create_home_page(self):
         page = QWidget()
@@ -1002,7 +1159,7 @@ class MainWindow(QMainWindow):
 
         # Connect buttons
         self.format_info_btn.clicked.connect(self.show_format_guide)
-        self.load_holiday_btn.clicked.connect(self.load_holidays_from_db)
+        self.load_holiday_btn.clicked.connect(self.load_holidays_to_db)
         self.view_holiday_btn.clicked.connect(self.show_holiday_viewer)
 
         # When creating buttons
@@ -1222,12 +1379,14 @@ class MainWindow(QMainWindow):
 
         # Generate Button
         generate_container = QHBoxLayout()
-        generate_container.addStretch()
+        generate_container.addStretch()  # Left stretch
 
-        self.generateButton = QPushButton("Generate Report")
-        self.generateButton.setObjectName("generateButton")
-        self.generateButton.setFixedHeight(35)
-        self.generateButton.setStyleSheet("""
+
+        self.generate_button = QPushButton("Generate Report")
+        self.generate_button.setObjectName("generate_button")
+        self.generate_button.setFixedHeight(35)
+        self.generate_button.setFixedSize(280, 40)  # Slightly larger for emphasis
+        self.generate_button.setStyleSheet("""
                 QPushButton {
                     background-color: #118370;
                     color: white;
@@ -1243,14 +1402,16 @@ class MainWindow(QMainWindow):
                     color: #666666;
                 }
             """)
-        generate_container.addWidget(self.generateButton)
+        generate_container.addWidget(self.generate_button)
+        generate_container.addStretch()  # Right stretch
 
         progress_layout.addLayout(generate_container)
 
         # Create button container for alignment
         button_container = QHBoxLayout()
         button_container.addStretch()
-        button_container.addWidget(self.generateButton)
+        button_container.addWidget(self.generate_button)
+        self.generate_button.clicked.connect(self.generate_report)
 
         # Add to main layout without stretching
         main_layout.addWidget(year_month_group)
@@ -1266,7 +1427,7 @@ class MainWindow(QMainWindow):
 
         main_layout.addStretch()
         # Update progress
-        self.progress_bar.setValue(50)  # 0-100%
+        self.progress_bar.setValue(0)  # 0-100%
         # Set fixed height for message label to prevent layout shift
         self.msg_label.setFixedHeight(0)
 
@@ -1300,6 +1461,95 @@ class MainWindow(QMainWindow):
         """Clear the status message"""
         self.msg_label.hide()
         self.msg_label.setText("")
+
+    def get_holidays_for_year(self, year):
+        """
+        Fetch holidays for a specific year from the database
+        Returns:
+            list: List of holidays (YYYY-MM-DD format) or None if error occurs
+            None: Returns None if database error occurs
+        """
+        try:
+            cursor = self.db_connection.cursor()
+            cursor.execute("SELECT holidays FROM holiday WHERE year = ?", (str(year),))
+            result = cursor.fetchone()
+
+            if result:
+                return json.loads(result[0])
+            return []  # Return empty list if no entries found
+
+        except sqlite3.Error as e:
+            print(f"Database error fetching holidays: {str(e)}")
+            return None
+        except json.JSONDecodeError as e:
+            print(f"Error parsing holiday data: {str(e)}")
+            return None
+        finally:
+            if cursor:
+                cursor.close()
+    def clean_keys(self, dict_list):
+        cleaned_list = []
+        for data_dict in dict_list:
+            cleaned_dict = {}
+            for key, value in data_dict.items():
+                # Clean the key by removing '\n' and extra spaces
+                clean_key = key.replace("\n", " ").strip()
+                cleaned_dict[clean_key] = value
+            cleaned_list.append(cleaned_dict)
+        return cleaned_list
+    def generate_report(self):
+
+        if not self.raw_category_list or not self.category or not self.name_mapping or not self.name_order_list:
+            # Show error message (red)
+            self.show_message("Error: Please select proper category file!", "error", 5000)
+            return None
+
+        # Implement report generation logic here
+        self.month_combo.currentText()
+        self.selected_month = self.month_combo.currentText()
+        self.selected_year = self.year_combo.currentText()
+
+        #:: TODO - Change the file name
+        self.file_name = "output"
+
+        self.file_name = self.file_name + ".xlsx"
+
+        self.HOLIDAY_LIST = self.get_holidays_for_year(self.selected_year)
+
+        if not self.HOLIDAY_LIST:
+            # Show error message (red)
+            self.show_message(f"Error: Please load the holiday corresponding to the year {self.selected_year}.", "error", 5000)
+            return None
+
+
+        if self.df:
+            self.df = self.clean_keys(self.df)
+            # self.ui.progressBar.setValue(50)
+            status, response, user_data, non_complaince_resources = (generate_excel(
+                    self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST, self.name_mapping,
+                    self.name_order_list, self.progress_bar))
+            if status == 200:
+                remaining_val = 100 - self.progress_bar.value()
+
+                step = remaining_val / 3
+                if self.category:
+                    self.add_category_data(user_data)
+                    self.ui.progressBar.setValue(self.ui.progressBar.value() + int(step))
+                    self.add_summary_page()
+                    self.ui.progressBar.setValue(self.ui.progressBar.value() + int(step))
+            else:
+                self.ui.error_msg.setText(response)
+                self.ui.error_msg.setStyleSheet("color:red;")
+
+            if non_complaince_resources:
+                self.non_compliance_resources(non_complaince_resources)
+
+            # sys.exit(1)
+            self.ui.progressBar.setValue(100)
+        else:
+            self.ui.error_msg.setText("Please provide raw excel file as an input.")
+    
+    
     def upload_file(self):
         file_dialog = QFileDialog(self)
         filepath, _ = file_dialog.getOpenFileName(self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)")
@@ -1325,15 +1575,16 @@ class MainWindow(QMainWindow):
                 self.selected_month = self.month_combo.currentText()
 
                 if value == self.selected_month[:3]:
-                    self.show_message("Valid Raw Excel Loaded", "info", 2000)
+                    self.show_message("Valid Raw Excel Loaded", "info", 4000)
                 else:
                     self.show_message("Invalid Raw excel, please check the file or selected month.", "error", 5000)
+                    self.main_input.setPlainText("")
                     self.df = None
-                # Update progress
-                self.progress_bar.setValue(50)  # 0-100%
-
-                # Show/hide when needed
-                self.progress_bar.setVisible(True)
+                # # Update progress
+                # self.progress_bar.setValue(0)  # 0-100%
+                #
+                # # Show/hide when needed
+                # self.progress_bar.setVisible(True)
 
                 # Reset on completion
                 # self.progress_bar.reset()
@@ -1394,8 +1645,9 @@ class MainWindow(QMainWindow):
                     temp_list = sorted(v)
                     self.category[k] = temp_list
                     self.name_order_list.extend(temp_list)
-                QMessageBox.information(self, "Success", "Category data successfully created!",
-                    QMessageBox.StandardButton.Ok)
+                # QMessageBox.information(self, "Success", "Category data successfully created!",
+                #     QMessageBox.StandardButton.Ok)
+                self.show_message("Category data successfully created!", "success", 3000)
 
         except Exception as e:
             self.raw_category_list, self.name_order_list = ([],) * 2
@@ -1469,7 +1721,7 @@ class MainWindow(QMainWindow):
         msg_box.setText(guide_text)
         msg_box.exec()
 
-    def load_holidays_from_db(self):
+    def load_holidays_to_db(self):
         """Open file dialog and import holidays from Excel"""
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday Excel File", "", "Excel Files (*.xlsx *.xls)")
 
@@ -1502,7 +1754,6 @@ class MainWindow(QMainWindow):
                 raise ValueError("First cell must contain a 4-digit year")
 
             # Process dates
-            holidays = []
             for idx in range(1, len(df)):
                 date_val = df.iloc[idx, 0]
 
@@ -1523,15 +1774,18 @@ class MainWindow(QMainWindow):
 
                     # Validate year match
                     if str(date_obj.year) != excel_year:
-                        # raise ValueError(f"Date {date_obj.date()} doesn't match Excel year {excel_year}")
-                        QMessageBox.critical(self, "Invalid Date",
-                            f"Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}")
+                        msg = f"Invalid Date : Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}"
+                        self.show_message(msg, "error", 5000)
+                        # QMessageBox.critical(self, "Invalid Date",
+                        #     f"Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}")
                         return  # Stop the operation immediately
 
-                    holidays.append(date_obj.strftime("%Y-%m-%d"))
+                    self.HOLIDAY_LIST.append(date_obj.strftime("%Y-%m-%d"))
 
                 except Exception as e:
-                    QMessageBox.critical(self, "Invalid Date", f"Error in row {idx + 1}:\n{str(e)}")
+                    # QMessageBox.critical(self, "Invalid Date", f"Error in row {idx + 1}:\n{str(e)}")
+                    msg = f"Invalid Date : Error in row {idx + 1}:\n{str(e)}"
+                    self.show_message(msg, "error", 5000)
                     return
 
             # Check for existing entry
@@ -1548,7 +1802,7 @@ class MainWindow(QMainWindow):
 
             # Insert/Update data
             cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
-                (excel_year, json.dumps(holidays)))
+                (excel_year, json.dumps(self.HOLIDAY_LIST)))
             self.db_connection.commit()
 
             # Update UI
@@ -1557,11 +1811,14 @@ class MainWindow(QMainWindow):
                 self.year_combo.addItem(excel_year)
             self.year_combo.setCurrentText(excel_year)
 
-            # self.holiday_input.setPlainText("\n".join(holidays))
-            QMessageBox.information(self, "Success", f"Loaded {len(holidays)} holidays for {excel_year}")
+            msg = f"Loaded {len(self.HOLIDAY_LIST)} holidays for {excel_year}"
+            self.show_message(msg, "success", 5000)
+            # QMessageBox.information(self, "Success", f"Loaded {len(holidays)} holidays for {excel_year}")
 
         except Exception as e:
-            QMessageBox.critical(self, "Import Error", f"Failed to load holidays:\n{str(e)}")
+            # QMessageBox.critical(self, "Import Error", f"Failed to load holidays:\n{str(e)}")
+            msg = f"Import Error: Failed to load holidays:\n{str(e)}"
+            self.show_message(msg, "error", 5000)
         finally:
             if cursor:
                 cursor.close()
@@ -1668,61 +1925,74 @@ class MainWindow(QMainWindow):
         return page
 
     def create_database_page(self):
-        """Create the database management page"""
+        """Create the database management page with dropdown"""
         page = QWidget()
-        layout = QHBoxLayout(page)
+        layout = QVBoxLayout(page)
         layout.setContentsMargins(20, 20, 20, 20)
-        layout.setSpacing(20)
+        layout.setSpacing(15)
 
-        # Table list panel
-        left_panel = QWidget()
-        left_layout = QVBoxLayout(left_panel)
+        # Database selection section
+        db_control_layout = QHBoxLayout()
 
-        self.db_table_list = QListWidget()
-        self.db_table_list.itemClicked.connect(self.show_table_contents)
-        left_layout.addWidget(QLabel("Database Tables:"))
-        left_layout.addWidget(self.db_table_list)
+        # Table selection dropdown
+        self.db_table_combo = QComboBox()
+        self.db_table_combo.setPlaceholderText("Select a table...")
+        self.db_table_combo.currentTextChanged.connect(self.show_table_contents)
+        db_control_layout.addWidget(QLabel("Select Table:"), 1)
+        db_control_layout.addWidget(self.db_table_combo, 4)
 
-        # Table controls
-        self.delete_btn = QPushButton("🗑️ Delete Table")
-        self.delete_btn.clicked.connect(self.delete_current_table)
-        self.delete_btn.setEnabled(False)
+        # Export button
+        self.export_btn = QPushButton("📤 Export Records")
+        self.export_btn.clicked.connect(self.export_record)
+        self.export_btn.setEnabled(False)
+        db_control_layout.addWidget(self.export_btn, 1)
 
-        left_layout.addWidget(self.delete_btn)
-        left_layout.addStretch()
+        layout.addLayout(db_control_layout)
 
-        # Table view panel
-        right_panel = QWidget()
-        right_layout = QVBoxLayout(right_panel)
-
+        # Table view section
         self.table_view = QTableWidget()
         self.table_view.setSortingEnabled(True)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        right_layout.addWidget(self.table_view)
+        self.table_view.verticalHeader().setVisible(False)
+        self.table_view.setAlternatingRowColors(True)
 
-        layout.addWidget(left_panel, 1)
-        layout.addWidget(right_panel, 3)
+        # Add styling
+        self.table_view.setStyleSheet("""
+            QTableWidget {
+                border: 1px solid #cccccc;
+                border-radius: 4px;
+                background-color: white;
+            }
+            QHeaderView::section {
+                background-color: #f0f0f0;
+                padding: 4px;
+            }
+        """)
+
+        layout.addWidget(self.table_view)
 
         return page
 
-    def show_table_contents(self, item):
-        """Display contents of selected table"""
-        self.current_table = item.text()
-        self.delete_btn.setEnabled(True)
+    def export_record(self):
+        ...
+
+    def show_table_contents(self, table_name):
+        """Display contents of selected table from dropdown"""
+        if not table_name:
+            return
 
         try:
             cursor = self.db_connection.cursor()
-            cursor.execute(f"SELECT * FROM {self.current_table}")
-            rows = cursor.fetchall()
-
-            # Get column names
-            cursor.execute(f"PRAGMA table_info({self.current_table})")
+            cursor.execute(f"PRAGMA table_info({table_name})")
             columns = [col[1] for col in cursor.fetchall()]
+
+            cursor.execute(f"SELECT * FROM {table_name}")
+            rows = cursor.fetchall()
 
             # Configure table view
             self.table_view.setRowCount(len(rows))
-            self.table_view.setColumnCount(len(columns))
-            self.table_view.setHorizontalHeaderLabels(columns)
+            self.table_view.setColumnCount(len(columns) + 2)  # +2 for Edit & Delete buttons
+            self.table_view.setHorizontalHeaderLabels(columns + ["Edit", "Delete"])
 
             # Populate data
             for row_idx, row in enumerate(rows):
@@ -1730,38 +2000,129 @@ class MainWindow(QMainWindow):
                     item = QTableWidgetItem(str(value))
                     self.table_view.setItem(row_idx, col_idx, item)
 
+                # Add Edit Button
+                edit_btn = QPushButton("✏️ Edit")
+                edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
+                self.table_view.setCellWidget(row_idx, len(columns), edit_btn)
+
+                # Add Delete Button
+                delete_btn = QPushButton("🗑️ Delete")
+                delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
+                self.table_view.setCellWidget(row_idx, len(columns) + 1, delete_btn)
+
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Database Error", f"Failed to load table:\n{str(e)}")
         finally:
             if cursor:
                 cursor.close()
 
-    def delete_current_table(self):
-        """Delete currently selected table with confirmation"""
-        if not self.current_table:
-            return
+    def open_edit_dialog(self, table_name, row_data):
+        """Open edit dialog to modify row data"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Edit Record")
+        layout = QVBoxLayout(dialog)
 
-        confirm = QMessageBox.question(self, "Confirm Delete",
-            f"Are you sure you want to delete table '{self.current_table}'?",
+        cursor = self.db_connection.cursor()
+        cursor.execute(f"PRAGMA table_info({table_name})")
+        columns = [col[1] for col in cursor.fetchall()]
+
+        form_layout = QFormLayout()
+        input_fields = {}
+
+        for col_name, value in zip(columns, row_data):
+            line_edit = QLineEdit(str(value))
+            input_fields[col_name] = line_edit
+            form_layout.addRow(QLabel(col_name), line_edit)
+
+        layout.addLayout(form_layout)
+
+        # Save Button
+        save_button = QPushButton("Save")
+        save_button.clicked.connect(lambda: self.save_edited_row(dialog, table_name, columns, row_data, input_fields))
+
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+        button_layout.addWidget(save_button)
+        layout.addLayout(button_layout)
+
+        dialog.setLayout(layout)
+        dialog.exec()
+
+    def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
+        """Save edited data to database"""
+        try:
+            cursor = self.db_connection.cursor()
+
+            # Prepare update query
+            set_clause = ", ".join([f"{col} = ?" for col in columns])
+            where_clause = " AND ".join([f"{col} = ?" for col in columns])
+            query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+
+            # Get new values and execute update
+            new_values = [input_fields[col].text() for col in columns]
+            old_values = list(old_row_data)
+            cursor.execute(query, new_values + old_values)
+            self.db_connection.commit()
+
+            QMessageBox.information(self, "Success", "Record updated successfully.")
+            dialog.close()
+
+            # Refresh table view
+            self.show_table_contents(table_name)
+
+        except sqlite3.Error as e:
+            QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(e)}")
+
+    def delete_row(self, table_name, row_data):
+        """Delete a row from the database after confirmation"""
+        confirm = QMessageBox.question(self, "Confirm Delete", "Are you sure you want to delete this record?",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if confirm == QMessageBox.StandardButton.Yes:
             try:
                 cursor = self.db_connection.cursor()
-                cursor.execute(f"DROP TABLE {self.current_table}")
-                self.db_connection.commit()
 
-                # Refresh UI
-                self.initialize_database()
-                self.table_view.clear()
-                self.current_table = None
-                self.delete_btn.setEnabled(False)
+                # Prepare delete query
+                where_clause = " AND ".join([f"{col} = ?" for col in row_data])
+                query = f"DELETE FROM {table_name} WHERE {where_clause}"
+
+                cursor.execute(query, row_data)
+                # self.db_connection.commit()
+
+                QMessageBox.information(self, "Deleted", "Record deleted successfully.")
+
+                # Refresh table view
+                self.show_table_contents(table_name)
 
             except sqlite3.Error as e:
-                QMessageBox.critical(self, "Database Error", f"Failed to delete table:\n{str(e)}")
-            finally:
-                if cursor:
-                    cursor.close()
+                QMessageBox.critical(self, "Error", f"Failed to delete record:\n{str(e)}")
+
+    # def delete_current_table(self):
+    #     """Delete currently selected table with confirmation"""
+    #     if not self.current_table:
+    #         return
+    #
+    #     confirm = QMessageBox.question(self, "Confirm Delete",
+    #         f"Are you sure you want to delete table '{self.current_table}'?",
+    #         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+    #
+    #     if confirm == QMessageBox.StandardButton.Yes:
+    #         try:
+    #             cursor = self.db_connection.cursor()
+    #             cursor.execute(f"DROP TABLE {self.current_table}")
+    #             self.db_connection.commit()
+    #
+    #             # Refresh UI
+    #             self.initialize_database()
+    #             self.table_view.clear()
+    #             self.current_table = None
+    #             self.delete_btn.setEnabled(False)
+    #
+    #         except sqlite3.Error as e:
+    #             QMessageBox.critical(self, "Database Error", f"Failed to delete table:\n{str(e)}")
+    #         finally:
+    #             if cursor:
+    #                 cursor.close()
 
     def closeEvent(self, event):
         """Close database connection when window closes"""
