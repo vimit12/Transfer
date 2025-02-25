@@ -640,7 +640,7 @@ class MainWindow(QMainWindow):
         self.current_year = str(datetime.now().year)  # Add this line
         print(f"Current year : {self.current_year}")
         self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
-        self.category, self.name_mapping = {}, {}  # ✅ Separate dictionaries
+        self.categories, self.name_mapping = {}, {}  # ✅ Separate dictionaries
         self.HOLIDAY_LIST = []
 
         self.init_ui()
@@ -1524,18 +1524,18 @@ class MainWindow(QMainWindow):
                 team = item["team"]
 
                 # Check if the team is already in the dictionary
-                if team in self.category:
-                    self.category[team].append(name)
+                if team in self.categories:
+                    self.categories[team].append(name)
                 else:
-                    self.category[team] = [name]
+                    self.categories[team] = [name]
 
                 self.name_mapping.update(
                     {name: [item['id_521'], item['point_of_contact'], item['start_date'], item['end_date']]})
 
 
-            for k, v in self.category.items():
+            for k, v in self.categories.items():
                 temp_list = sorted(v)
-                self.category[k] = temp_list
+                self.categories[k] = temp_list
                 self.name_order_list.extend(temp_list)
 
             return True
@@ -1548,7 +1548,7 @@ class MainWindow(QMainWindow):
 
     def generate_report(self):
 
-        if not all([self.raw_category_list, self.category, self.name_mapping, self.name_order_list]):
+        if not all([self.raw_category_list, self.categories, self.name_mapping, self.name_order_list]):
             if not (result := self.fetch_all_resource_mappings()):
                 self.show_message("Error: Please select proper category file!", "error", 5000)
                 return None
@@ -1573,7 +1573,19 @@ class MainWindow(QMainWindow):
 
         if self.df:
             self.df = self.clean_keys(self.df)
-            # self.ui.progressBar.setValue(50)
+
+            for category, valid_rsnames in self.categories.items():
+                self.file_name = f"{category}_Timesheet_{self.selected_month} {self.selected_year}.xlsx"
+                # Filter df based on Rsname matching any valid_rsnames with 100% coverage
+                filtered_df = [record for record in self.df if any(
+                    coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
+                    valid_rsnames)]
+
+                print(filtered_df)
+                # # Send filtered data to another function
+                # if filtered_df:
+                #     process_filtered_data(filename, filtered_df)
+
             status, response, user_data, non_complaince_resources = (generate_excel(
                     self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST, self.name_mapping,
                     self.name_order_list, self.progress_bar))
@@ -1581,7 +1593,7 @@ class MainWindow(QMainWindow):
                 remaining_val = 100 - self.progress_bar.value()
 
                 step = remaining_val / 3
-                if self.category:
+                if self.categories:
                     self.add_category_data(user_data)
                     self.ui.progressBar.setValue(self.ui.progressBar.value() + int(step))
                     self.add_summary_page()
@@ -1647,7 +1659,7 @@ class MainWindow(QMainWindow):
         filepath, _ = file_dialog.getOpenFileName(self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)")
 
         self.raw_category_list, self.name_order_list = ([],) * 2
-        self.category = dict()
+        self.categories = dict()
         self.name_mapping = dict()
 
         try:
@@ -1675,10 +1687,10 @@ class MainWindow(QMainWindow):
                     team = item["Team"]
 
                     # Check if the team is already in the dictionary
-                    if team in self.category:
-                        self.category[team].append(name)
+                    if team in self.categories:
+                        self.categories[team].append(name)
                     else:
-                        self.category[team] = [name]
+                        self.categories[team] = [name]
 
                     self.name_mapping.update({name:[item["521 ID"], item["Point of Contact"], item["Start Date"],
                         item["End Date"]]})
@@ -1690,9 +1702,9 @@ class MainWindow(QMainWindow):
                 #     preprocess_name(item["Full Name"]): [item["521 ID"], item["Point of Contact"], item["Start Date"],
                 #         item["End Date"], ] for item in self.raw_category_list}
 
-                for k, v in self.category.items():
+                for k, v in self.categories.items():
                     temp_list = sorted(v)
-                    self.category[k] = temp_list
+                    self.categories[k] = temp_list
                     self.name_order_list.extend(temp_list)
                 # QMessageBox.information(self, "Success", "Category data successfully created!",
                 #     QMessageBox.StandardButton.Ok)
@@ -1700,7 +1712,7 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             self.raw_category_list, self.name_order_list = ([],) * 2
-            self.category, self.name_mapping = (dict(),) * 2
+            self.categories, self.name_mapping = (dict(),) * 2
     def show_format_guide(self):
         """Show Excel format requirements"""
         guide_text = """
