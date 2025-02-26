@@ -10,12 +10,11 @@ from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
 import sqlite3
 import json
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
 from openpyxl.utils import quote_sheetname
 from openpyxl.utils import get_column_letter
-from openpyxl import Workbook
 from dateutil import parser
 from datetime import datetime
 import calendar
@@ -220,7 +219,7 @@ def clean_date(value):
     if isinstance(value, NaTType):
         return None  # Convert NaT to None
     if isinstance(value, pd.Timestamp):
-        return value.strftime("%Y-%m-%d")  # Convert Timestamp to 'YYYY-MM-DD' format
+        return value.strftime("%d-%m-%Y")  # Convert Timestamp to 'DD-MM-YYYY' format
     return value  # Return as is if it's already a string
 
 def clean_string(s):
@@ -316,6 +315,21 @@ def date_calculation(date):
 
     return day, month, year
 
+def get_details_for_name(name, name_mapping):
+    """
+    Given an input name and a mapping of names to details,
+    returns the (start_date, end_date) if a key is found with 100% coverage.
+    """
+    for key in name_mapping:
+        # Assuming clean_string is defined elsewhere
+        if coverage_percentage(name, preprocess_name(key)) == 100:
+            return name_mapping[key]
+    # If no exact 100% match is found, return (None, None)
+    return None
+
+
+
+
 # add validation of month, like if use data is for april and month is may
 # :: TODO calculation for individual user - billable days - fixed - done
 # :: TODO exclude date cal for holiday days if user has marked the attendance - done
@@ -357,7 +371,11 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             public_holiday = 0
             mismatch_date = []
             name = preprocess_name(new_data.get("Rsname"))
-            start_date, end_date = name_mapping[name][2:] if name_mapping.get(name) else (None,) * 2
+
+            details = get_details_for_name(name, name_mapping)
+            start_date, end_date = details[2], details[3]
+            print("Start Date:", start_date, "End Date:", end_date)
+            # start_date, end_date = name_mapping[name][2:] if name_mapping.get(name) else (None,) * 2
 
             if start_date:
                 sd, sm, sy = date_calculation(start_date)
@@ -447,9 +465,19 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                                 dt_status = 0
                                 total_working_days -= 1
 
-                        data_model.append((dt, day_name[:3], dt_status, is_weekend_or_leave, "", "", "", "",))
-
+                        if is_weekend_or_leave == "Holiday" and dt_status == 0:
+                            data_model.append((dt, day_name[:3], "Holiday", "", "", "", "", "",))
+                        elif is_weekend_or_leave == "Leave" and dt_status == 0:
+                            data_model.append((dt, day_name[:3], "Leave", "", "", "", "", "",))
+                        elif is_weekend_or_leave == "Weekend" and dt_status == 0:
+                            data_model.append((dt, day_name[:3], dt_status, is_weekend_or_leave, "", "", "", "",))
+                        else:
+                            if dt_status == 1:
+                                data_model.append((dt, day_name[:3], 8, is_weekend_or_leave, "", "", "", "",))
+                            else:
+                                data_model.append((dt, day_name[:3], 4, is_weekend_or_leave, "", "", "", "",))
             billable_days = total_working_days - leave_taken
+            # billable_days = total_working_days
             # print("USER =====>", new_data.get("Rsname"))
             # print("BILLABLE ====>", billable_days)
             # print("WEEKENDS ====>", weekends)
@@ -457,14 +485,14 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             # print("LEAVE TAKEN ====>", leave_taken)
             # print("-"*20)
             # print("PUBLIC HOLIDAY ====>", public_holiday)
-            point_of_contact = (name_mapping[name][1] if name_mapping.get(name) else "xxxxxxx")
-            ID_521 = name_mapping[name][0] if name_mapping.get(name) else "xxxxxxx"
+            point_of_contact = (details[1] if details else "xxxxxxx")
+            ID_521 = details[0] if details else "xxxxxxx"
             if mismatch_date:
                 non_complaince_user.append(
                     {"Name": new_data.get("Rsname"), "Month": month, "Listed Month Holiday": month_day_holiday_list,
                         "Attendance Marked on Holiday": mismatch_date, })
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
-                "Hitachi Vantara": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
+                "Hitachi Digital Service": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
                 "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
                 f"{point_of_contact}": [f"{ID_521}", f"{total_working_days}", "Remarks", ],
                 "Adjustments from Last Month": ["", "", ""], "0": ["", "", ""], "": ["", "", ""],
@@ -642,6 +670,7 @@ class MainWindow(QMainWindow):
         self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
         self.categories, self.name_mapping = {}, {}  # ✅ Separate dictionaries
         self.HOLIDAY_LIST = []
+        self.df = None
 
         self.init_ui()
         self.initialize_database()
@@ -798,10 +827,10 @@ class MainWindow(QMainWindow):
             self.db_table_combo.clear()
             self.db_table_combo.addItems(all_tables)
 
-            # Check for current year holidays
-            cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))
-            if not cursor.fetchone():
-                self.show_holiday_import_dialog()
+            # # Check for current year holidays
+            # cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))
+            # if not cursor.fetchone():
+            #     self.show_holiday_import_dialog()
 
         except sqlite3.Error as e:
             error_msg = f"Database error: {str(e)}"
@@ -993,7 +1022,7 @@ class MainWindow(QMainWindow):
                 if str(date_obj.year) != excel_year:
                     raise ValueError(f"Date {date_obj} doesn't match Excel year {excel_year}")
 
-                holidays.append(date_obj.strftime("%Y-%m-%d"))
+                holidays.append(date_obj.strftime("%d-%m-%Y"))
 
             # Insert into database
             # cursor.execute("INSERT INTO holiday (year, holidays) VALUES (?, ?)", (excel_year, json.dumps(holidays)))
@@ -1546,6 +1575,47 @@ class MainWindow(QMainWindow):
             if cursor:
                 cursor.close()
 
+    def non_compliance_resources(self, data, filename="non_complaint_user.xlsx"):
+
+        # Create a new workbook and select the active worksheet
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Attendance Data"
+
+        # Define the header names and order
+        headers = ["Name", "Month", "Listed Month Holiday", "Attendance Marked on Holiday"]
+
+        # Set header style
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+
+        # Write the headers to the worksheet
+        for col_num, header in enumerate(headers, start=1):
+            cell = ws.cell(row=1, column=col_num, value=header)
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+            # Set column width
+            column_width = max(len(header), 20)
+            ws.column_dimensions[get_column_letter(col_num)].width = column_width
+
+        # Write the data to the worksheet
+        for row_num, entry in enumerate(data, start=2):
+            ws.cell(row=row_num, column=1, value=entry["Name"])
+            ws.cell(row=row_num, column=2, value=entry["Month"])
+            ws.cell(row=row_num, column=3, value=", ".join(entry["Listed Month Holiday"]))
+            ws.cell(row=row_num, column=4, value=", ".join(entry["Attendance Marked on Holiday"]))
+
+            # Set alignment for data cells
+            for col_num in range(1, 5):
+                cell = ws.cell(row=row_num, column=col_num)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Save the workbook to the specified filename
+        wb.save(filename)
+        print(f"Data written to {filename} with formatting.")
+
     def generate_report(self):
 
         if not all([self.raw_category_list, self.categories, self.name_mapping, self.name_order_list]):
@@ -1554,7 +1624,7 @@ class MainWindow(QMainWindow):
                 return None
 
         # Implement report generation logic here
-        self.month_combo.currentText()
+        # self.month_combo.currentText()
         self.selected_month = self.month_combo.currentText()
         self.selected_year = self.year_combo.currentText()
 
@@ -1581,35 +1651,30 @@ class MainWindow(QMainWindow):
                     coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
                     valid_rsnames)]
 
-                print(filtered_df)
-                # # Send filtered data to another function
-                # if filtered_df:
-                #     process_filtered_data(filename, filtered_df)
+                status, response, user_data, non_complaince_resources = (generate_excel(
+                        self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST, self.name_mapping,
+                        self.name_order_list, self.progress_bar))
+                if status == 200:
+                    remaining_val = 100 - self.progress_bar.value()
 
-            status, response, user_data, non_complaince_resources = (generate_excel(
-                    self.selected_month, self.selected_year, self.file_name, self.df, self.HOLIDAY_LIST, self.name_mapping,
-                    self.name_order_list, self.progress_bar))
-            if status == 200:
-                remaining_val = 100 - self.progress_bar.value()
+                    step = remaining_val / 3
+                    if self.categories:
+                        # self.add_category_data(user_data)
+                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                        # self.add_summary_page()
+                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                else:
+                    self.show_message(f"Error: {response}",
+                                      "error", 5000)
 
-                step = remaining_val / 3
-                if self.categories:
-                    self.add_category_data(user_data)
-                    self.ui.progressBar.setValue(self.ui.progressBar.value() + int(step))
-                    self.add_summary_page()
-                    self.ui.progressBar.setValue(self.ui.progressBar.value() + int(step))
-            else:
-                self.ui.error_msg.setText(response)
-                self.ui.error_msg.setStyleSheet("color:red;")
-
-            if non_complaince_resources:
-                self.non_compliance_resources(non_complaince_resources)
+                if non_complaince_resources:
+                    self.non_compliance_resources(non_complaince_resources)
 
             # sys.exit(1)
-            self.ui.progressBar.setValue(100)
+            self.progress_bar.setValue(100)
         else:
-            self.ui.error_msg.setText("Please provide raw excel file as an input.")
-    
+            self.show_message(f"Error: Please provide raw excel file as an input.",
+                              "error", 5000)
     
     def upload_file(self):
         file_dialog = QFileDialog(self)
@@ -1711,8 +1776,11 @@ class MainWindow(QMainWindow):
                 self.show_message("Category data successfully created!", "success", 3000)
 
         except Exception as e:
-            self.raw_category_list, self.name_order_list = ([],) * 2
-            self.categories, self.name_mapping = (dict(),) * 2
+            self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
+            self.categories, self.name_mapping = {}, {}  # ✅ Separate dictionaries
+            self.category_input.setPlainText(f"")
+            self.show_message(f"Error: Not a valid category file",
+                              "error", 5000)
     def show_format_guide(self):
         """Show Excel format requirements"""
         guide_text = """
@@ -1841,7 +1909,7 @@ class MainWindow(QMainWindow):
                         #     f"Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}")
                         return  # Stop the operation immediately
 
-                    self.HOLIDAY_LIST.append(date_obj.strftime("%Y-%m-%d"))
+                    self.HOLIDAY_LIST.append(date_obj.strftime("%d-%m-%Y"))
 
                 except Exception as e:
                     # QMessageBox.critical(self, "Invalid Date", f"Error in row {idx + 1}:\n{str(e)}")
@@ -1951,7 +2019,7 @@ class MainWindow(QMainWindow):
                 self.holiday_table.setRowCount(len(holidays))
 
                 for row, date_str in enumerate(holidays):
-                    date = QDateTime.fromString(date_str, "yyyy-MM-dd")
+                    date = QDateTime.fromString(date_str, "dd-MM-yyyy")
 
                     self.holiday_table.setItem(row, 0, QTableWidgetItem(date_str))
                     self.holiday_table.setItem(row, 1, QTableWidgetItem(date.toString("dddd")))
