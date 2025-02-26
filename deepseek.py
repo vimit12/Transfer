@@ -1597,7 +1597,11 @@ class MainWindow(QMainWindow):
             cell.alignment = Alignment(horizontal="center", vertical="center")
 
             # Set column width
-            column_width = max(len(header), 20)
+            # Set column width; assign a larger width for the "Name" column
+            if header == "Name":
+                column_width = 40  # Increase this value as needed
+            else:
+                column_width = max(len(header), 20)
             ws.column_dimensions[get_column_letter(col_num)].width = column_width
 
         # Write the data to the worksheet
@@ -1615,6 +1619,54 @@ class MainWindow(QMainWindow):
         # Save the workbook to the specified filename
         wb.save(filename)
         print(f"Data written to {filename} with formatting.")
+
+    def add_summary_page(self, data, filename="my_workbook.xlsx"):
+        """
+        Creates a new sheet called 'Summary' at index 0 in the workbook.
+        Writes headers from B4 and then data from row 5 onward.
+        """
+        # Load existing workbook (or create a new one if needed)
+        wb = load_workbook(filename)
+
+        # Create a new sheet at index 0
+        sheet = wb.create_sheet("Summary", 0)
+
+        # Set tab color
+        sheet.sheet_properties.tabColor = "34b1eb"
+
+        # ----------------------
+        # Write Headers at Row 4
+        # ----------------------
+        sheet["B4"] = "Name"
+        sheet["C4"] = "Total Number of Billable Days"
+        sheet["D4"] = "Leave Days"
+
+        # Optional: Apply styles to headers
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        for col in ["B", "C", "D"]:
+            cell = sheet[f"{col}4"]
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # ----------------------------------------------------
+        # Write the data starting from row 5 (one row below headers)
+        # ----------------------------------------------------
+        start_row = 5
+        for idx, entry in enumerate(data, start=start_row):
+            sheet.cell(row=idx, column=2, value=entry.get("Name", ""))
+            sheet.cell(row=idx, column=3, value=entry.get("Total Number of Billable Days", 0))
+            sheet.cell(row=idx, column=4, value=entry.get("Service Credit Pool Days", 0))
+
+            # (Optional) Center-align the data cells
+            for col_num in range(2, 5):
+                cell = sheet.cell(row=idx, column=col_num)
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+
+        # Save the workbook
+        wb.save(filename)
+        print(f"Summary sheet created and data written to '{filename}'")
 
     def generate_report(self):
 
@@ -1661,14 +1713,14 @@ class MainWindow(QMainWindow):
                     if self.categories:
                         # self.add_category_data(user_data)
                         self.progress_bar.setValue(self.progress_bar.value() + int(step))
-                        # self.add_summary_page()
+                        self.add_summary_page(user_data, self.file_name)
                         self.progress_bar.setValue(self.progress_bar.value() + int(step))
                 else:
                     self.show_message(f"Error: {response}",
                                       "error", 5000)
 
                 if non_complaince_resources:
-                    self.non_compliance_resources(non_complaince_resources)
+                    self.non_compliance_resources(non_complaince_resources, f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
 
             # sys.exit(1)
             self.progress_bar.setValue(100)
