@@ -1624,6 +1624,7 @@ class MainWindow(QMainWindow):
         """
         Creates a new sheet called 'Summary' at index 0 in the workbook.
         Writes headers from B4 and then data from row 5 onward.
+        Adjusts column width automatically and adds a 'Total' row at the end.
         """
         # Load existing workbook (or create a new one if needed)
         wb = load_workbook(filename)
@@ -1634,35 +1635,95 @@ class MainWindow(QMainWindow):
         # Set tab color
         sheet.sheet_properties.tabColor = "34b1eb"
 
-        # ----------------------
-        # Write Headers at Row 4
-        # ----------------------
-        sheet["B4"] = "Name"
-        sheet["C4"] = "Total Number of Billable Days"
-        sheet["D4"] = "Leave Days"
+        # ------------------------------------------------------
+        # 1) Write Headers at Row 4 (B4, C4, D4)
+        # ------------------------------------------------------
+        headers = {
+            2: "Name",
+            3: "Total Number of Billable Days",
+            4: "Service Credit Pool Days"
+        }
 
-        # Optional: Apply styles to headers
-        header_font = Font(bold=True, color="FFFFFF")
-        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
-        for col in ["B", "C", "D"]:
-            cell = sheet[f"{col}4"]
-            cell.font = header_font
-            cell.fill = header_fill
-            cell.alignment = Alignment(horizontal="center", vertical="center")
+        # Write headers
+        for col_idx, header_text in headers.items():
+            cell = sheet.cell(row=4, column=col_idx, value=header_text)
+            # Style the header
+            cell.font = Font(bold=True, color="111212")
+            cell.fill = PatternFill(start_color="a7defa", end_color="a7defa", fill_type="solid")
+            cell.alignment = Alignment(horizontal="left", vertical="center")
 
-        # ----------------------------------------------------
-        # Write the data starting from row 5 (one row below headers)
-        # ----------------------------------------------------
+        # ------------------------------------------------------
+        # 2) Write Data Starting from Row 5
+        # ------------------------------------------------------
         start_row = 5
         for idx, entry in enumerate(data, start=start_row):
-            sheet.cell(row=idx, column=2, value=entry.get("Name", ""))
+            sheet_name = entry.get("Name", "")
+            cell_B = sheet.cell(row=idx, column=2, value=sheet_name)
+            # If the Name is also a sheet, add a hyperlink to cell A1 of that sheet
+            if sheet_name:
+                cell_B.hyperlink = f"#'{sheet_name}'!A1"
+                cell_B.style = "Hyperlink"
+                cell_B.font = Font(color="000000", underline="single")
+            cell_B.alignment = Alignment(horizontal="left", vertical="center")
+
+            # Column C: Total Number of Billable Days
             sheet.cell(row=idx, column=3, value=entry.get("Total Number of Billable Days", 0))
+            # Column D: Service Credit Pool Days
             sheet.cell(row=idx, column=4, value=entry.get("Service Credit Pool Days", 0))
 
-            # (Optional) Center-align the data cells
-            for col_num in range(2, 5):
-                cell = sheet.cell(row=idx, column=col_num)
-                cell.alignment = Alignment(horizontal="center", vertical="center")
+        # ------------------------------------------------------
+        # 3) Add a "Total" Row
+        # ------------------------------------------------------
+        # The last row of data is (start_row + len(data) - 1)
+        last_data_row = start_row + len(data) - 1
+        total_row = last_data_row + 1  # One row below the last data row
+
+        # Write "Total" in column B
+        sheet.cell(row=total_row, column=2, value="Total").alignment = Alignment(horizontal="center", vertical="center")
+
+        # Sum formula for column C (Total Number of Billable Days)
+        sheet.cell(row=total_row, column=3,
+                   value=f"=SUM({get_column_letter(3)}{start_row}:{get_column_letter(3)}{last_data_row})")
+        # Sum formula for column D (Service Credit Pool Days)
+        sheet.cell(row=total_row, column=4,
+                   value=f"=SUM({get_column_letter(4)}{start_row}:{get_column_letter(4)}{last_data_row})")
+        total_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
+
+        # Center-align total row cells
+        for col_num in range(2, 5):
+            sheet.cell(row=total_row, column=col_num).alignment = Alignment(horizontal="center", vertical="center")
+            sheet.cell(row=total_row, column=col_num).fill = total_fill
+
+        # ------------------------------------------------------
+        # 4) Auto-Adjust Column Widths Based on Longest Value
+        # ------------------------------------------------------
+        # Track maximum length of data (including headers)
+        max_lengths = {col_idx: 0 for col_idx in headers}
+
+        # Check headers
+        for col_idx, header_text in headers.items():
+            max_lengths[col_idx] = max(max_lengths[col_idx], len(str(header_text)))
+
+        # Check data rows
+        for row_idx in range(start_row, last_data_row + 1):
+            for col_idx in range(2, 5):
+                cell_value = sheet.cell(row=row_idx, column=col_idx).value
+                if cell_value is not None:
+                    max_lengths[col_idx] = max(max_lengths[col_idx], len(str(cell_value)))
+
+        # Check the "Total" row
+        max_lengths[2] = max(max_lengths[2], len("Total"))  # Column B
+        # Formulas won't be too long, but check them if you like
+        # e.g. =SUM(C5:C9)
+        for col_idx in [3, 4]:
+            formula_text = sheet.cell(row=total_row, column=col_idx).value
+            max_lengths[col_idx] = max(max_lengths[col_idx], len(str(formula_text)))
+
+        # Set column widths
+        for col_idx in range(2, 5):
+            col_letter = get_column_letter(col_idx)
+            # Add a small buffer so text isn't cramped
+            sheet.column_dimensions[col_letter].width = max_lengths[col_idx] + 2
 
         # Save the workbook
         wb.save(filename)
