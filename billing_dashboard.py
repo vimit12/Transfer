@@ -2,7 +2,7 @@ import sys
 from collections import Counter
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget,
-    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog,
+    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit,
     QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
     QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea)
 from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor
@@ -2631,63 +2631,87 @@ class MainWindow(QMainWindow):
         ...
 
     def open_edit_dialog(self, table_name, row_data):
-        """Open edit dialog to modify row data with improved UI"""
+        """Open spacious edit dialog with large input fields"""
         dialog = QDialog(self)
         dialog.setWindowTitle(f"Edit Record - {table_name}")
-        dialog.setMinimumSize(600, 400)  # Set minimum dialog size
+        dialog.setMinimumSize(800, 600)  # Larger dialog size
 
-        # Main layout
+        # Main layout with spacing
         main_layout = QVBoxLayout(dialog)
-        main_layout.setContentsMargins(20, 20, 20, 20)
-        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(30, 30, 30, 30)
+        main_layout.setSpacing(25)
 
-        # Add table name header
-        title_label = QLabel(f"Editing record from: {table_name}")
-        title_label.setStyleSheet("""
+        # Header section
+        header = QLabel(f"Editing Record in '{table_name}'")
+        header.setStyleSheet("""
             QLabel {
-                font-size: 16px;
+                font-size: 20px;
                 font-weight: bold;
                 color: #2c3e50;
-                padding-bottom: 10px;
+                padding-bottom: 15px;
                 border-bottom: 2px solid #3498db;
             }
         """)
-        main_layout.addWidget(title_label)
+        main_layout.addWidget(header)
 
         # Get column information
         cursor = self.db_connection.cursor()
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = [col[1] for col in cursor.fetchall()]
 
-        # Create scroll area for long forms
+        # Scroll area for long forms
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         content = QWidget()
-        form_layout = QFormLayout(content)
-        form_layout.setContentsMargins(10, 10, 10, 10)
-        form_layout.setSpacing(15)
+        form_layout = QVBoxLayout(content)  # Changed to vertical layout
+        form_layout.setContentsMargins(15, 15, 15, 15)
+        form_layout.setSpacing(30)
 
         input_fields = {}
         for col_name, value in zip(columns, row_data):
-            # Create input field with label
-            label = QLabel(col_name)
-            label.setStyleSheet("font-weight: bold; color: #34495e;")
+            # Create field container
+            field_container = QWidget()
+            field_layout = QVBoxLayout(field_container)
+            field_layout.setContentsMargins(0, 0, 0, 0)
+            field_layout.setSpacing(8)
 
-            input_field = QLineEdit(str(value))
-            input_field.setStyleSheet("""
-                QLineEdit {
-                    padding: 8px;
-                    border: 1px solid #bdc3c7;
-                    border-radius: 4px;
+            # Label with larger font
+            label = QLabel(col_name)
+            label.setStyleSheet("""
+                QLabel {
                     font-size: 14px;
+                    font-weight: bold;
+                    color: #34495e;
                 }
-                QLineEdit:focus {
+            """)
+
+            # For longer text fields
+            input_field = QTextEdit() if isinstance(value, str) and len(str(value)) > 50 else QLineEdit()
+
+            # Set initial value
+            if isinstance(input_field, QLineEdit):
+                input_field.setText(str(value))
+                input_field.setClearButtonEnabled(True)
+            else:
+                input_field.setPlainText(str(value))
+
+            # Common styling for both input types
+            input_field.setStyleSheet("""
+                QLineEdit, QTextEdit {
+                    font-size: 16px;
+                    padding: 12px;
+                    border: 2px solid #bdc3c7;
+                    border-radius: 6px;
+                    min-height: 50px;
+                }
+                QLineEdit:focus, QTextEdit:focus {
                     border-color: #3498db;
                 }
             """)
-            input_field.setMinimumHeight(35)
 
-            form_layout.addRow(label, input_field)
+            field_layout.addWidget(label)
+            field_layout.addWidget(input_field)
+            form_layout.addWidget(field_container)
             input_fields[col_name] = input_field
 
         scroll.setWidget(content)
@@ -2698,16 +2722,18 @@ class MainWindow(QMainWindow):
         button_layout = QHBoxLayout(button_container)
         button_layout.setContentsMargins(0, 0, 0, 0)
 
-        # Save button
-        save_btn = QPushButton("💾 Save Changes")
+        # Save button with icon
+        save_btn = QPushButton(" Save Changes")
+        save_btn.setIcon(QIcon.fromTheme("document-save"))
         save_btn.setStyleSheet("""
             QPushButton {
                 background-color: #27ae60;
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 4px;
-                font-size: 14px;
+                padding: 15px 30px;
+                border-radius: 6px;
+                font-size: 16px;
+                min-width: 150px;
             }
             QPushButton:hover {
                 background-color: #219a52;
@@ -2716,15 +2742,16 @@ class MainWindow(QMainWindow):
         save_btn.clicked.connect(lambda: self.save_edited_row(dialog, table_name, columns, row_data, input_fields))
 
         # Cancel button
-        cancel_btn = QPushButton("❌ Cancel")
+        cancel_btn = QPushButton("Cancel")
         cancel_btn.setStyleSheet("""
             QPushButton {
                 background-color: #e74c3c;
                 color: white;
                 border: none;
-                padding: 10px 20px;
-                border-radius: 4px;
-                font-size: 14px;
+                padding: 15px 30px;
+                border-radius: 6px;
+                font-size: 16px;
+                min-width: 150px;
             }
             QPushButton:hover {
                 background-color: #c0392b;
@@ -2740,12 +2767,12 @@ class MainWindow(QMainWindow):
 
         dialog.setStyleSheet("""
             QDialog {
-                background-color: #ecf0f1;
+                background-color: #f8f9fa;
+                font-family: 'Segoe UI', sans-serif;
             }
         """)
 
         dialog.exec()
-
     def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
         """Save edited data to database"""
         try:
