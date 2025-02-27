@@ -2629,36 +2629,121 @@ class MainWindow(QMainWindow):
 
     def export_record(self):
         ...
-    def open_edit_dialog(self, table_name, row_data):
-        """Open edit dialog to modify row data"""
-        dialog = QDialog(self)
-        dialog.setWindowTitle("Edit Record")
-        layout = QVBoxLayout(dialog)
 
+    def open_edit_dialog(self, table_name, row_data):
+        """Open edit dialog to modify row data with improved UI"""
+        dialog = QDialog(self)
+        dialog.setWindowTitle(f"Edit Record - {table_name}")
+        dialog.setMinimumSize(600, 400)  # Set minimum dialog size
+
+        # Main layout
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+        main_layout.setSpacing(15)
+
+        # Add table name header
+        title_label = QLabel(f"Editing record from: {table_name}")
+        title_label.setStyleSheet("""
+            QLabel {
+                font-size: 16px;
+                font-weight: bold;
+                color: #2c3e50;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #3498db;
+            }
+        """)
+        main_layout.addWidget(title_label)
+
+        # Get column information
         cursor = self.db_connection.cursor()
         cursor.execute(f"PRAGMA table_info({table_name})")
         columns = [col[1] for col in cursor.fetchall()]
 
-        form_layout = QFormLayout()
+        # Create scroll area for long forms
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        content = QWidget()
+        form_layout = QFormLayout(content)
+        form_layout.setContentsMargins(10, 10, 10, 10)
+        form_layout.setSpacing(15)
+
         input_fields = {}
-
         for col_name, value in zip(columns, row_data):
-            line_edit = QLineEdit(str(value))
-            input_fields[col_name] = line_edit
-            form_layout.addRow(QLabel(col_name), line_edit)
+            # Create input field with label
+            label = QLabel(col_name)
+            label.setStyleSheet("font-weight: bold; color: #34495e;")
 
-        layout.addLayout(form_layout)
+            input_field = QLineEdit(str(value))
+            input_field.setStyleSheet("""
+                QLineEdit {
+                    padding: 8px;
+                    border: 1px solid #bdc3c7;
+                    border-radius: 4px;
+                    font-size: 14px;
+                }
+                QLineEdit:focus {
+                    border-color: #3498db;
+                }
+            """)
+            input_field.setMinimumHeight(35)
 
-        # Save Button
-        save_button = QPushButton("Save")
-        save_button.clicked.connect(lambda: self.save_edited_row(dialog, table_name, columns, row_data, input_fields))
+            form_layout.addRow(label, input_field)
+            input_fields[col_name] = input_field
 
-        button_layout = QHBoxLayout()
+        scroll.setWidget(content)
+        main_layout.addWidget(scroll)
+
+        # Button container
+        button_container = QWidget()
+        button_layout = QHBoxLayout(button_container)
+        button_layout.setContentsMargins(0, 0, 0, 0)
+
+        # Save button
+        save_btn = QPushButton("💾 Save Changes")
+        save_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #27ae60;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #219a52;
+            }
+        """)
+        save_btn.clicked.connect(lambda: self.save_edited_row(dialog, table_name, columns, row_data, input_fields))
+
+        # Cancel button
+        cancel_btn = QPushButton("❌ Cancel")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #e74c3c;
+                color: white;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 4px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        cancel_btn.clicked.connect(dialog.reject)
+
         button_layout.addStretch()
-        button_layout.addWidget(save_button)
-        layout.addLayout(button_layout)
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(save_btn)
 
-        dialog.setLayout(layout)
+        main_layout.addWidget(button_container)
+
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #ecf0f1;
+            }
+        """)
+
         dialog.exec()
 
     def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
@@ -2752,7 +2837,7 @@ class MainWindow(QMainWindow):
 
         content = QLabel("Proprietary Software - Hitachi Digital Service\n\n"
                          "Version 1.2.0\n"
-                         "Build Date: 2023-07-20\n\n"
+                         "Build Date: 2025-03-03\n\n"
                          "Developed using:\n"
                          "• Python 3.11\n"
                          "• PyQt6 Framework\n"
