@@ -2510,7 +2510,7 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(db_control_layout)
 
-        # Filter row (new section)
+        # Add this before table view initialization
         self.filter_row = QWidget()
         self.filter_layout = QHBoxLayout()
         self.filter_layout.setContentsMargins(0, 0, 0, 0)
@@ -2554,11 +2554,12 @@ class MainWindow(QMainWindow):
                         widget.deleteLater()
 
             # Add new filter inputs
+            # Add filter input boxes (inside show_table_contents)
             self.filter_inputs = []
             for col_name in columns:
                 filter_edit = QLineEdit()
                 filter_edit.setPlaceholderText(f"Filter {col_name}")
-                filter_edit.textChanged.connect(self.apply_filters)
+                filter_edit.textChanged.connect(self.apply_filters)  # Connect filtering
                 self.filter_layout.addWidget(filter_edit)
                 self.filter_inputs.append(filter_edit)
             self.filter_layout.addWidget(QWidget())  # Spacer for action column
@@ -2602,24 +2603,29 @@ class MainWindow(QMainWindow):
                 cursor.close()
 
     def apply_filters(self):
-        """Apply column filters to table data"""
+        """Apply case-insensitive partial matching filters to table rows"""
         try:
+            # Get lowercase filter texts
             filters = [edit.text().strip().lower() for edit in self.filter_inputs]
 
+            # Check each row
             for row in range(self.table_view.rowCount()):
-                match = True
+                should_show = True
                 for col in range(len(filters)):
-                    if not filters[col]:
-                        continue
+                    if filters[col]:  # Only check non-empty filters
+                        item = self.table_view.item(row, col)
+                        cell_text = item.text().lower() if item else ""
 
-                    item = self.table_view.item(row, col)
-                    if not item or filters[col] not in item.text().lower():
-                        match = False
-                        break
+                        # Partial match check
+                        if filters[col] not in cell_text:
+                            should_show = False
+                            break
 
-                self.table_view.setRowHidden(row, not match)
+                # Show/hide row based on filter match
+                self.table_view.setRowHidden(row, not should_show)
+
         except Exception as e:
-            print(f"Error applying filters: {str(e)}")
+            print(f"Filter error: {str(e)}")
 
     def export_record(self):
         ...
@@ -2744,7 +2750,7 @@ class MainWindow(QMainWindow):
         title = QLabel("About This Application")
         title.setObjectName("title")
 
-        content = QLabel("Proprietary Software - Hitachi Digital Solutions\n\n"
+        content = QLabel("Proprietary Software - Hitachi Digital Service\n\n"
                          "Version 1.2.0\n"
                          "Build Date: 2023-07-20\n\n"
                          "Developed using:\n"
