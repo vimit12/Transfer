@@ -5,7 +5,7 @@ from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget,
     QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog,
     QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
     QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea)
-from PyQt6.QtGui import QFont, QIcon, QAction, QActionGroup
+from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
 import sqlite3
@@ -40,13 +40,15 @@ QWidget {
     selection-background-color: #3a3a3a;
 }
 
+/* Buttons */
 QPushButton {
     background-color: #353535;
     border: 1px solid #454545;
     border-radius: 4px;
-    padding: 8px 12px;
-    min-width: 80px;
+    padding: 6px 10px;
+    min-width: 70px;
     font-size: 10px;
+    color: #ffffff; /* Ensure white text */
 }
 
 QPushButton:hover {
@@ -58,19 +60,30 @@ QPushButton:checked {
     border-color: #006ab3;
 }
 
+/* Inputs */
 QLineEdit, QComboBox {
     background-color: #353535;
     border: 1px solid #454545;
     border-radius: 4px;
     padding: 6px 8px;
     min-height: 28px;
+    color: #ffffff; /* White text */
 }
 
+/* Dropdown Items */
+QComboBox QAbstractItemView {
+    background-color: #353535;
+    color: #ffffff;
+    selection-background-color: #007acc;
+}
+
+/* Sidebar */
 QFrame#sidebar {
     background-color: #252526;
     border-right: 1px solid #353535;
 }
 
+/* Titles */
 QLabel#title {
     font-size: 20px;
     font-weight: 600;
@@ -86,36 +99,77 @@ QLabel#subtitle {
 QFormLayout QLabel {
     font-weight: 500;
     padding-bottom: 3px;
+    color: #ffffff;
 }
+
+/* Table */
+QTableWidget {
+    background-color: #353535;
+    color: #ffffff;
+    border: 1px solid #454545;
+    gridline-color: #555555;
+}
+
+QHeaderView::section {
+    background-color: #454545;
+    color: #ffffff;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QTableWidget::item {
+    color: #ffffff;
+    padding: 6px;
+}
+
+QTableWidget::item:selected {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
 /* Holiday Group Box Buttons */
 #format_info_btn {
-    background-color: #6c5ce7;  /* Soft purple */
+    background-color: #6c5ce7;
     color: white;
     border: 1px solid #5d4ec9;
 }
 
 #load_holiday_btn {
-    background-color: #00b894;  /* Teal */
+    background-color: #00b894;
     color: white;
     border: 1px solid #00a383;
 }
 
 #view_holiday_btn {
-    background-color: #e66767;  /* Soft coral */
+    background-color: #e66767;
     color: white;
     border: 1px solid #d35454;
 }
 
+/* Button Hover Effects */
 QPushButton:hover {
-    background-color: rgba(108, 92, 231, 0.8);  /* Purple hover */
+    background-color: rgba(108, 92, 231, 0.8);
 }
 
 #load_holiday_btn:hover {
-    background-color: rgba(0, 184, 148, 0.8);  /* Teal hover */
+    background-color: rgba(0, 184, 148, 0.8);
 }
 
 #view_holiday_btn:hover {
-    background-color: rgba(230, 103, 103, 0.8);  /* Coral hover */
+    background-color: rgba(230, 103, 103, 0.8);
+}
+QComboBox {
+    background-color: #353535;
+    border: 1px solid #454545;
+    border-radius: 4px;
+    color: #ffffff;
+    padding: 6px;
+    min-height: 28px;
+}
+QComboBox QAbstractItemView {
+    background-color: #3a3a3a;
+    color: #ffffff;
+    selection-background-color: #007acc;
 }
 """
 
@@ -126,13 +180,15 @@ QWidget {
     selection-background-color: #e0e0e0;
 }
 
+/* Buttons */
 QPushButton {
     background-color: #f5f5f5;
     border: 1px solid #cccccc;
     border-radius: 4px;
-    padding: 8px 12px;
-    min-width: 80px;
+    padding: 6px 10px;
+    min-width: 70px;
     font-size: 10px;
+    color: #333333;
 }
 
 QPushButton:hover {
@@ -145,19 +201,30 @@ QPushButton:checked {
     border-color: #006ab3;
 }
 
+/* Inputs */
 QLineEdit, QComboBox {
     background-color: #ffffff;
     border: 1px solid #cccccc;
     border-radius: 4px;
     padding: 6px 8px;
     min-height: 28px;
+    color: #333333;
 }
 
+/* Dropdown Items */
+QComboBox QAbstractItemView {
+    background-color: #ffffff;
+    color: #333333;
+    selection-background-color: #007acc;
+}
+
+/* Sidebar */
 QFrame#sidebar {
     background-color: #f8f8f8;
     border-right: 1px solid #e0e0e0;
 }
 
+/* Titles */
 QLabel#title {
     font-size: 20px;
     font-weight: 600;
@@ -173,36 +240,64 @@ QLabel#subtitle {
 QFormLayout QLabel {
     font-weight: 500;
     padding-bottom: 3px;
+    color: #333333;
 }
+
+/* Table */
+QTableWidget {
+    background-color: #ffffff;
+    color: #333333;
+    border: 1px solid #cccccc;
+    gridline-color: #dddddd;
+}
+
+QHeaderView::section {
+    background-color: #f0f0f0;
+    color: #333333;
+    padding: 6px;
+    font-weight: bold;
+}
+
+QTableWidget::item {
+    color: #333333;
+    padding: 6px;
+}
+
+QTableWidget::item:selected {
+    background-color: #007acc;
+    color: #ffffff;
+}
+
 /* Holiday Group Box Buttons */
 #format_info_btn {
-    background-color: #a8a4e6;  /* Light purple */
+    background-color: #a8a4e6;
     color: #2d3436;
     border: 1px solid #8f8bd9;
 }
 
 #load_holiday_btn {
-    background-color: #55efc4;  /* Light teal */
+    background-color: #55efc4;
     color: #2d3436;
     border: 1px solid #48cfad;
 }
 
 #view_holiday_btn {
-    background-color: #ff7675;  /* Soft red */
+    background-color: #ff7675;
     color: #2d3436;
     border: 1px solid #ff6564;
 }
 
+/* Button Hover Effects */
 QPushButton:hover {
-    background-color: rgba(168, 164, 230, 0.8);  /* Light purple hover */
+    background-color: rgba(168, 164, 230, 0.8);
 }
 
 #load_holiday_btn:hover {
-    background-color: rgba(85, 239, 196, 0.8);  /* Light teal hover */
+    background-color: rgba(85, 239, 196, 0.8);
 }
 
 #view_holiday_btn:hover {
-    background-color: rgba(255, 118, 117, 0.8);  /* Soft red hover */
+    background-color: rgba(255, 118, 117, 0.8);
 }
 """
 
@@ -681,8 +776,8 @@ class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Billing Report Generator")
-        self.setGeometry(100, 100, 1000, 700)
-        self.setFixedSize(1000, 700)
+        self.setGeometry(100, 100, 1200, 700)
+        self.setFixedSize(1200, 700)
         self.current_theme = "Light"
         self.themes = ["Dark", "Light", "System"]
         self.db_connection = None
@@ -2424,22 +2519,31 @@ class MainWindow(QMainWindow):
         self.table_view.setAlternatingRowColors(True)
 
         # Styling
-        self.table_view.setStyleSheet("""
-            QTableWidget {
-                border: 1px solid #cccccc;
-                border-radius: 4px;
-                background-color: white;
-                gridline-color: #dddddd;
-            }
-            QHeaderView::section {
-                background-color: #f0f0f0;
-                padding: 6px;
-                font-weight: bold;
-            }
-            QTableWidget::item {
-                padding: 6px;
-            }
-        """)
+        # self.table_view.setStyleSheet("""
+        #     QTableWidget {
+        #         border: 1px solid #cccccc;
+        #         border-radius: 4px;
+        #         background-color: white;
+        #         gridline-color: #dddddd;
+        #     }
+        #     QHeaderView::section {
+        #         background-color: #f0f0f0;
+        #         padding: 6px;
+        #         font-weight: bold;
+        #     }
+        #     QTableWidget::item {
+        #         padding: 6px;
+        #     }
+        #     QPushButton {
+        #         border: none;
+        #         background: transparent;
+        #         padding: 2px;
+        #     }
+        #     QPushButton:hover {
+        #         background-color: rgba(0, 0, 0, 0.1);
+        #         border-radius: 4px;
+        #     }
+        # """)
 
         layout.addWidget(self.table_view)
         return page
@@ -2459,8 +2563,8 @@ class MainWindow(QMainWindow):
 
             # Configure table view
             self.table_view.setRowCount(len(rows))
-            self.table_view.setColumnCount(len(columns) + 2)  # +2 for Edit & Delete buttons
-            self.table_view.setHorizontalHeaderLabels(columns + ["Edit", "Delete"])
+            self.table_view.setColumnCount(len(columns) + 1)  # +1 for Action column
+            self.table_view.setHorizontalHeaderLabels(columns + ["Action"])
 
             # Adjust column width dynamically based on column count
             if len(columns) <= 5:
@@ -2473,18 +2577,33 @@ class MainWindow(QMainWindow):
             for row_idx, row in enumerate(rows):
                 for col_idx, value in enumerate(row):
                     item = QTableWidgetItem(str(value))
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)  # Align text properly
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
                     self.table_view.setItem(row_idx, col_idx, item)
 
-                # Add Edit Button
-                edit_btn = QPushButton("✏️ Edit")
-                edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
-                self.table_view.setCellWidget(row_idx, len(columns), edit_btn)
+                # Add Action column with small buttons
+                action_layout = QHBoxLayout()
+                action_layout.setContentsMargins(0, 0, 0, 0)
+                action_layout.setSpacing(5)
 
-                # Add Delete Button
+                # Edit Button
+                edit_btn = QPushButton("✏️ Edit")
+                edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                edit_btn.setToolTip("Edit record")
+                edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
+
+                # Delete Button
                 delete_btn = QPushButton("🗑️ Delete")
+                delete_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
+                delete_btn.setToolTip("Delete record")
                 delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
-                self.table_view.setCellWidget(row_idx, len(columns) + 1, delete_btn)
+
+                action_layout.addWidget(edit_btn)
+                action_layout.addWidget(delete_btn)
+
+                # Set action widget in the last column
+                action_widget = QWidget()
+                action_widget.setLayout(action_layout)
+                self.table_view.setCellWidget(row_idx, len(columns), action_widget)
 
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Database Error", f"Failed to load table:\n{str(e)}")
