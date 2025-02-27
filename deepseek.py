@@ -305,15 +305,11 @@ def date_calculation(date):
     if isinstance(date, datetime):
         date_obj = date
     else:
-        # Parse the date string or timestamp
-        date_obj = parser.parse(str(date))
+        # Parse the date string using the format DD-MM-YYYY
+        date_obj = datetime.strptime(date, "%d-%m-%Y")
 
     # Extract the day, month, and year
-    day = date_obj.day
-    month = date_obj.month
-    year = date_obj.year
-
-    return day, month, year
+    return date_obj.day, date_obj.month, date_obj.year
 
 def get_details_for_name(name, name_mapping):
     """
@@ -370,6 +366,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             leave_taken = 0
             public_holiday = 0
             mismatch_date = []
+            msg = None
             name = preprocess_name(new_data.get("Rsname"))
 
             details = get_details_for_name(name, name_mapping)
@@ -400,6 +397,25 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                             total_working_days += 1
                         dt = f"{date}-{month_name[:3]}"
                         day_name = f"{day['day_name']}"
+
+                        if sm_flag or em_flag:
+                            if sm_flag and not em_flag:
+                                if date < sd:
+                                    data_model.append((dt, day_name[:3], "Not On Boarded", "", "", "", "", "",))
+                                    continue
+                            elif not sm_flag and em_flag:
+                                if date > ed:
+                                    data_model.append((dt, day_name[:3], "Off Boarded", "", "", "", "", "",))
+                                    continue
+                            else:
+                                if date < sd:
+                                    data_model.append((dt, day_name[:3], "Not On Boarded", "", "", "", "", "",))
+                                    continue
+                                elif date > ed:
+                                    data_model.append((dt, day_name[:3], "Off Boarded", "", "", "", "", "",))
+                                    continue
+                                else:
+                                    msg = "On Board"
 
                         key = (f"{day_name[:3]}, {f'{date:02}' if date < 10 else date}-"
                                f"{month_name[:3].title()}")
@@ -494,21 +510,27 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
                 "Hitachi Digital Service": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
                 "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
-                f"{point_of_contact}": [f"{ID_521}", f"{total_working_days}", "Remarks", ],
+                f"{point_of_contact}": [f"{ID_521}", total_working_days, "Remarks", ],
                 "Adjustments from Last Month": ["", "", ""], "0": ["", "", ""], "": ["", "", ""],
                 "Week Off": ["Personal/Sick Leave", "", ""], }
             df = pd.DataFrame(data)
 
             # Create a new sheet or get the existing one
             sheet_name = new_data.get("Rsname")
+            billable_days = 0
+            for row in data_model:
+                value = row[2]  # third element
+                if isinstance(value, (int, float)):
+                    if value == 8:
+                        billable_days += 1
+                    elif value == 4:
+                        billable_days += 0.5
+                df.loc[len(df)] = row
 
-            for i in data_model:
-                df.loc[len(df)] = i
+            df.loc[len(df)] = ["Leaves Taken", leave_taken, "Billable Days", billable_days, "", "", "", "", ]
 
-            df.loc[len(df)] = ["Leaves Taken", f"{leave_taken}", "Billable Days", f"{billable_days}", "", "", "", "", ]
-
-            df.loc[len(df)] = ["Weekends", f"{weekends}", "", "", "", "", "", ""]
-            df.loc[len(df)] = ["Public Holidays", f"{public_holiday}", "", "", "", "", "", "", ]
+            df.loc[len(df)] = ["Weekends", weekends, "", "", "", "", "", ""]
+            df.loc[len(df)] = ["Public Holidays", public_holiday, "", "", "", "", "", "", ]
 
             # print(df)
             df_sheets.update({sheet_name: df})
@@ -775,37 +797,55 @@ class MainWindow(QMainWindow):
             existing_tables = [table[0].lower() for table in cursor.fetchall()]
 
             # Table creation queries with corrected syntax
-            tables = {'holiday': '''
-                    CREATE TABLE IF NOT EXISTS holiday (
-                        year TEXT PRIMARY KEY,
-                        holidays TEXT
-                    )
-                ''', 'user': '''
-                    CREATE TABLE IF NOT EXISTS user (
-                        name TEXT,
-                        month TEXT,
-                        year TEXT,
-                        attendance_report TEXT,
-                        PRIMARY KEY (name, month, year)
-                    )
-                ''', 'user_leave': '''
-                    CREATE TABLE IF NOT EXISTS user_leave (
-                        name TEXT,
-                        year TEXT,
-                        month TEXT,
-                        leave_days TEXT,
-                        PRIMARY KEY (name, year, month)
-                    )
-                ''', 'resource_mapping': '''
-                    CREATE TABLE IF NOT EXISTS resource_mapping (
-                        full_name TEXT,
-                        id_521 TEXT PRIMARY KEY,
-                        point_of_contact TEXT,
-                        team TEXT,
-                        start_date TEXT,
-                        end_date TEXT
-                    )
-                '''}
+            tables = {
+                'holiday': '''
+                            CREATE TABLE IF NOT EXISTS holiday (
+                                year TEXT PRIMARY KEY,
+                                holidays TEXT
+                            )
+                        ''',
+                'user': '''
+                            CREATE TABLE IF NOT EXISTS user (
+                                name TEXT,
+                                id_521 TEXT,
+                                month TEXT,
+                                year TEXT,
+                                attendance_report TEXT,
+                                PRIMARY KEY (name, month, year)
+                            )
+                        ''',
+                'user_leave': '''
+                            CREATE TABLE IF NOT EXISTS user_leave (
+                                name TEXT,
+                                id_521 TEXT,
+                                year TEXT,
+                                month TEXT,
+                                leave_days TEXT,
+                                PRIMARY KEY (name, year, month)
+                            )
+                        ''',
+                'resource_mapping': '''
+                            CREATE TABLE IF NOT EXISTS resource_mapping (
+                                full_name TEXT,
+                                id_521 TEXT PRIMARY KEY,
+                                point_of_contact TEXT,
+                                team TEXT,
+                                start_date TEXT,
+                                end_date TEXT
+                            )
+                        ''',
+                'non_complaint_user': '''
+                            CREATE TABLE IF NOT EXISTS non_complaint_user (
+                                name TEXT,
+                                id_521 TEXT,
+                                year TEXT,
+                                month TEXT,
+                                marked_leave TEXT,
+                                month_leave TEXT,
+                                PRIMARY KEY (name, year, month)
+                            )
+                        '''
+            }
 
             # Create missing tables
             created_tables = []
@@ -1624,16 +1664,20 @@ class MainWindow(QMainWindow):
         """
         Creates a new sheet called 'Summary' at index 0 in the workbook.
         Writes headers from B4 and then data from row 5 onward.
-        Adjusts column width automatically and adds a 'Total' row at the end.
+        Adjusts column width automatically, adds a 'Total' row at the end,
+        aligns only the Name column to left (others center) and applies borders
+        to the entire table.
         """
-        # Load existing workbook (or create a new one if needed)
+        # Load existing workbook
         wb = load_workbook(filename)
-
         # Create a new sheet at index 0
         sheet = wb.create_sheet("Summary", 0)
-
         # Set tab color
         sheet.sheet_properties.tabColor = "34b1eb"
+
+        # Define a thin border style for the entire table
+        thin_side = Side(border_style="thin", color="000000")
+        cell_border = Border(left=thin_side, right=thin_side, top=thin_side, bottom=thin_side)
 
         # ------------------------------------------------------
         # 1) Write Headers at Row 4 (B4, C4, D4)
@@ -1641,63 +1685,81 @@ class MainWindow(QMainWindow):
         headers = {
             2: "Name",
             3: "Total Number of Billable Days",
-            4: "Service Credit Pool Days"
+            4: "Leave Days"
         }
 
-        # Write headers
         for col_idx, header_text in headers.items():
             cell = sheet.cell(row=4, column=col_idx, value=header_text)
-            # Style the header
             cell.font = Font(bold=True, color="111212")
-            cell.fill = PatternFill(start_color="a7defa", end_color="a7defa", fill_type="solid")
-            cell.alignment = Alignment(horizontal="left", vertical="center")
+            cell.fill = PatternFill(start_color="B4C6E7", end_color="B4C6E7", fill_type="solid")
+            # Only "Name" header is left-aligned; others are center-aligned
+            if col_idx == 2:
+                cell.alignment = Alignment(horizontal="left", vertical="center")
+            else:
+                cell.alignment = Alignment(horizontal="center", vertical="center")
+            cell.border = cell_border
 
         # ------------------------------------------------------
         # 2) Write Data Starting from Row 5
         # ------------------------------------------------------
         start_row = 5
         for idx, entry in enumerate(data, start=start_row):
+            # Column B: Name (left-aligned)
             sheet_name = entry.get("Name", "")
             cell_B = sheet.cell(row=idx, column=2, value=sheet_name)
-            # If the Name is also a sheet, add a hyperlink to cell A1 of that sheet
             if sheet_name:
                 cell_B.hyperlink = f"#'{sheet_name}'!A1"
                 cell_B.style = "Hyperlink"
-                cell_B.font = Font(color="000000", underline="single")
+                cell_B.font = Font(color="000000")
             cell_B.alignment = Alignment(horizontal="left", vertical="center")
+            cell_B.border = cell_border
 
-            # Column C: Total Number of Billable Days
-            sheet.cell(row=idx, column=3, value=entry.get("Total Number of Billable Days", 0))
-            # Column D: Service Credit Pool Days
-            sheet.cell(row=idx, column=4, value=entry.get("Service Credit Pool Days", 0))
+            # Column C: Total Number of Billable Days (center-aligned)
+            cell_C = sheet.cell(row=idx, column=3, value=entry.get("Total Number of Billable Days", 0))
+            cell_C.alignment = Alignment(horizontal="center", vertical="center")
+            cell_C.border = cell_border
+
+            # Column D: Service Credit Pool Days (center-aligned)
+            cell_D = sheet.cell(row=idx, column=4, value=entry.get("Service Credit Pool Days", 0))
+            cell_D.alignment = Alignment(horizontal="center", vertical="center")
+            cell_D.border = cell_border
 
         # ------------------------------------------------------
         # 3) Add a "Total" Row
         # ------------------------------------------------------
-        # The last row of data is (start_row + len(data) - 1)
         last_data_row = start_row + len(data) - 1
         total_row = last_data_row + 1  # One row below the last data row
 
-        # Write "Total" in column B
-        sheet.cell(row=total_row, column=2, value="Total").alignment = Alignment(horizontal="center", vertical="center")
+        # Write "Total" in column B (center-aligned for total row)
+        total_cell_B = sheet.cell(row=total_row, column=2, value="Total")
+        total_cell_B.alignment = Alignment(horizontal="center", vertical="center")
+        total_cell_B.border = cell_border
 
-        # Sum formula for column C (Total Number of Billable Days)
-        sheet.cell(row=total_row, column=3,
-                   value=f"=SUM({get_column_letter(3)}{start_row}:{get_column_letter(3)}{last_data_row})")
-        # Sum formula for column D (Service Credit Pool Days)
-        sheet.cell(row=total_row, column=4,
-                   value=f"=SUM({get_column_letter(4)}{start_row}:{get_column_letter(4)}{last_data_row})")
+        # Sum formula for column C
+        total_cell_C = sheet.cell(
+            row=total_row, column=3,
+            value=f"=SUM({get_column_letter(3)}{start_row}:{get_column_letter(3)}{last_data_row})"
+        )
+        total_cell_C.alignment = Alignment(horizontal="center", vertical="center")
+        total_cell_C.border = cell_border
+
+        # Sum formula for column D
+        total_cell_D = sheet.cell(
+            row=total_row, column=4,
+            value=f"=SUM({get_column_letter(4)}{start_row}:{get_column_letter(4)}{last_data_row})"
+        )
+        total_cell_D.alignment = Alignment(horizontal="center", vertical="center")
+        total_cell_D.border = cell_border
+
+        # Apply fill for total row
         total_fill = PatternFill(start_color="F2F2F2", end_color="F2F2F2", fill_type="solid")
-
-        # Center-align total row cells
         for col_num in range(2, 5):
-            sheet.cell(row=total_row, column=col_num).alignment = Alignment(horizontal="center", vertical="center")
-            sheet.cell(row=total_row, column=col_num).fill = total_fill
+            cell = sheet.cell(row=total_row, column=col_num)
+            cell.fill = total_fill
 
         # ------------------------------------------------------
         # 4) Auto-Adjust Column Widths Based on Longest Value
         # ------------------------------------------------------
-        # Track maximum length of data (including headers)
         max_lengths = {col_idx: 0 for col_idx in headers}
 
         # Check headers
@@ -1712,9 +1774,7 @@ class MainWindow(QMainWindow):
                     max_lengths[col_idx] = max(max_lengths[col_idx], len(str(cell_value)))
 
         # Check the "Total" row
-        max_lengths[2] = max(max_lengths[2], len("Total"))  # Column B
-        # Formulas won't be too long, but check them if you like
-        # e.g. =SUM(C5:C9)
+        max_lengths[2] = max(max_lengths[2], len("Total"))
         for col_idx in [3, 4]:
             formula_text = sheet.cell(row=total_row, column=col_idx).value
             max_lengths[col_idx] = max(max_lengths[col_idx], len(str(formula_text)))
@@ -1722,7 +1782,6 @@ class MainWindow(QMainWindow):
         # Set column widths
         for col_idx in range(2, 5):
             col_letter = get_column_letter(col_idx)
-            # Add a small buffer so text isn't cramped
             sheet.column_dimensions[col_letter].width = max_lengths[col_idx] + 2
 
         # Save the workbook
@@ -1740,11 +1799,6 @@ class MainWindow(QMainWindow):
         # self.month_combo.currentText()
         self.selected_month = self.month_combo.currentText()
         self.selected_year = self.year_combo.currentText()
-
-        #:: TODO - Change the file name
-        self.file_name = "output"
-
-        self.file_name = self.file_name + ".xlsx"
 
         self.HOLIDAY_LIST = self.get_holidays_for_year(self.selected_year)
 
