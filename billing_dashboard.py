@@ -2510,42 +2510,23 @@ class MainWindow(QMainWindow):
 
         layout.addLayout(db_control_layout)
 
+        # Filter row (new section)
+        self.filter_row = QWidget()
+        self.filter_layout = QHBoxLayout()
+        self.filter_layout.setContentsMargins(0, 0, 0, 0)
+        self.filter_layout.setSpacing(5)
+        self.filter_row.setLayout(self.filter_layout)
+        layout.addWidget(self.filter_row)
+
         # Table view section
         self.table_view = QTableWidget()
         self.table_view.setSortingEnabled(True)
         self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table_view.horizontalHeader().setStretchLastSection(True)  # Expand last column if needed
-        self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)  # Adjust row height
+        self.table_view.horizontalHeader().setStretchLastSection(True)
+        self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table_view.setAlternatingRowColors(True)
-
-        # Styling
-        # self.table_view.setStyleSheet("""
-        #     QTableWidget {
-        #         border: 1px solid #cccccc;
-        #         border-radius: 4px;
-        #         background-color: white;
-        #         gridline-color: #dddddd;
-        #     }
-        #     QHeaderView::section {
-        #         background-color: #f0f0f0;
-        #         padding: 6px;
-        #         font-weight: bold;
-        #     }
-        #     QTableWidget::item {
-        #         padding: 6px;
-        #     }
-        #     QPushButton {
-        #         border: none;
-        #         background: transparent;
-        #         padding: 2px;
-        #     }
-        #     QPushButton:hover {
-        #         background-color: rgba(0, 0, 0, 0.1);
-        #         border-radius: 4px;
-        #     }
-        # """)
-
         layout.addWidget(self.table_view)
+
         return page
 
     def show_table_contents(self, table_name):
@@ -2563,15 +2544,30 @@ class MainWindow(QMainWindow):
 
             # Configure table view
             self.table_view.setRowCount(len(rows))
-            self.table_view.setColumnCount(len(columns) + 1)  # +1 for Action column
+            self.table_view.setColumnCount(len(columns) + 1)
             self.table_view.setHorizontalHeaderLabels(columns + ["Action"])
 
-            # Adjust column width dynamically based on column count
-            if len(columns) <= 5:
-                self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)  # Fit window
-            else:
-                self.table_view.horizontalHeader().setSectionResizeMode(
-                    QHeaderView.ResizeMode.Interactive)  # Scroll if needed
+            # Clear existing filters
+            while self.filter_layout.count():
+                if child := self.filter_layout.takeAt(0):
+                    if widget := child.widget():
+                        widget.deleteLater()
+
+            # Add new filter inputs
+            self.filter_inputs = []
+            for col_name in columns:
+                filter_edit = QLineEdit()
+                filter_edit.setPlaceholderText(f"Filter {col_name}")
+                filter_edit.textChanged.connect(self.apply_filters)
+                self.filter_layout.addWidget(filter_edit)
+                self.filter_inputs.append(filter_edit)
+            self.filter_layout.addWidget(QWidget())  # Spacer for action column
+
+            # Configure columns
+            for col in range(len(columns)):
+                mode = QHeaderView.ResizeMode.Stretch if len(columns) <= 5 else QHeaderView.ResizeMode.Interactive
+                self.table_view.horizontalHeader().setSectionResizeMode(col, mode)
+            self.table_view.horizontalHeader().setSectionResizeMode(len(columns), QHeaderView.ResizeMode.ResizeToContents)
 
             # Populate data
             for row_idx, row in enumerate(rows):
@@ -2580,36 +2576,50 @@ class MainWindow(QMainWindow):
                     item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
                     self.table_view.setItem(row_idx, col_idx, item)
 
-                # Add Action column with small buttons
-                action_layout = QHBoxLayout()
+                # Action buttons
+                action_widget = QWidget()
+                action_layout = QHBoxLayout(action_widget)
                 action_layout.setContentsMargins(0, 0, 0, 0)
                 action_layout.setSpacing(5)
 
-                # Edit Button
                 edit_btn = QPushButton("✏️ Edit")
-                edit_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-                edit_btn.setToolTip("Edit record")
                 edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
 
-                # Delete Button
                 delete_btn = QPushButton("🗑️ Delete")
-                delete_btn.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
-                delete_btn.setToolTip("Delete record")
                 delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
 
                 action_layout.addWidget(edit_btn)
                 action_layout.addWidget(delete_btn)
-
-                # Set action widget in the last column
-                action_widget = QWidget()
-                action_widget.setLayout(action_layout)
                 self.table_view.setCellWidget(row_idx, len(columns), action_widget)
+
+            # Apply initial filters
+            self.apply_filters()
 
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Database Error", f"Failed to load table:\n{str(e)}")
         finally:
             if cursor:
                 cursor.close()
+
+    def apply_filters(self):
+        """Apply column filters to table data"""
+        try:
+            filters = [edit.text().strip().lower() for edit in self.filter_inputs]
+
+            for row in range(self.table_view.rowCount()):
+                match = True
+                for col in range(len(filters)):
+                    if not filters[col]:
+                        continue
+
+                    item = self.table_view.item(row, col)
+                    if not item or filters[col] not in item.text().lower():
+                        match = False
+                        break
+
+                self.table_view.setRowHidden(row, not match)
+        except Exception as e:
+            print(f"Error applying filters: {str(e)}")
 
     def export_record(self):
         ...
