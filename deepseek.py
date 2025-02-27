@@ -3,7 +3,7 @@ from collections import Counter
 from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget,
     QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog,
-    QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar,
+    QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
     QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea)
 from PyQt6.QtGui import QFont, QIcon, QAction, QActionGroup
 from PyQt6 import QtCore, QtGui, QtWidgets
@@ -323,12 +323,6 @@ def get_details_for_name(name, name_mapping):
     # If no exact 100% match is found, return (None, None)
     return None
 
-
-
-
-# add validation of month, like if use data is for april and month is may
-# :: TODO calculation for individual user - billable days - fixed - done
-# :: TODO exclude date cal for holiday days if user has marked the attendance - done
 def generate_excel(month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list, progress_bar):
     global TOTAL_WORKING_DAY
     sheets_name = []
@@ -2424,29 +2418,31 @@ class MainWindow(QMainWindow):
         # Table view section
         self.table_view = QTableWidget()
         self.table_view.setSortingEnabled(True)
-        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.table_view.verticalHeader().setVisible(False)
+        self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.table_view.horizontalHeader().setStretchLastSection(True)  # Expand last column if needed
+        self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)  # Adjust row height
         self.table_view.setAlternatingRowColors(True)
 
-        # Add styling
+        # Styling
         self.table_view.setStyleSheet("""
             QTableWidget {
                 border: 1px solid #cccccc;
                 border-radius: 4px;
                 background-color: white;
+                gridline-color: #dddddd;
             }
             QHeaderView::section {
                 background-color: #f0f0f0;
-                padding: 4px;
+                padding: 6px;
+                font-weight: bold;
+            }
+            QTableWidget::item {
+                padding: 6px;
             }
         """)
 
         layout.addWidget(self.table_view)
-
         return page
-
-    def export_record(self):
-        ...
 
     def show_table_contents(self, table_name):
         """Display contents of selected table from dropdown"""
@@ -2466,10 +2462,18 @@ class MainWindow(QMainWindow):
             self.table_view.setColumnCount(len(columns) + 2)  # +2 for Edit & Delete buttons
             self.table_view.setHorizontalHeaderLabels(columns + ["Edit", "Delete"])
 
+            # Adjust column width dynamically based on column count
+            if len(columns) <= 5:
+                self.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)  # Fit window
+            else:
+                self.table_view.horizontalHeader().setSectionResizeMode(
+                    QHeaderView.ResizeMode.Interactive)  # Scroll if needed
+
             # Populate data
             for row_idx, row in enumerate(rows):
                 for col_idx, value in enumerate(row):
                     item = QTableWidgetItem(str(value))
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)  # Align text properly
                     self.table_view.setItem(row_idx, col_idx, item)
 
                 # Add Edit Button
@@ -2488,6 +2492,8 @@ class MainWindow(QMainWindow):
             if cursor:
                 cursor.close()
 
+    def export_record(self):
+        ...
     def open_edit_dialog(self, table_name, row_data):
         """Open edit dialog to modify row data"""
         dialog = QDialog(self)
