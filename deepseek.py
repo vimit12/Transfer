@@ -334,6 +334,8 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
     sheets_name = []
     try:
         user_data = list()
+
+        user_leave_record = list()
         non_complaince_user = []
         month_name = month
         holiday_list = holiday_list
@@ -358,6 +360,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
         progress_step = 0
         step = 100 / attendance_len
         for new_data in selected_row:
+            leave_dates = []
             start_date, end_date, sd, sm, sy, ed, em, ey, sm_flag, em_flag = (None,) * 10
             billable_days = 0
             weekends = 0
@@ -371,7 +374,6 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
 
             details = get_details_for_name(name, name_mapping)
             start_date, end_date = details[2], details[3]
-            print("Start Date:", start_date, "End Date:", end_date)
             # start_date, end_date = name_mapping[name][2:] if name_mapping.get(name) else (None,) * 2
 
             if start_date:
@@ -441,6 +443,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                                 case 4:
                                     dt_status = 0.5
                                     leave_taken += 0.5
+                                    leave_dates.append(f"{date}(0.5)")
                                 case value if value in rounded_values:
                                     dt_status = 0.25
                                     leave_taken += 0.25
@@ -454,7 +457,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                                     else:
                                         leave_taken += 1
                                         dt_status = 0
-
+                                        leave_dates.append(date)
                                         # for leave keyword to be added
                                         is_weekend_or_leave = "Leave"
                                 case _:
@@ -505,7 +508,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             ID_521 = details[0] if details else "xxxxxxx"
             if mismatch_date:
                 non_complaince_user.append(
-                    {"Name": new_data.get("Rsname"), "Month": month, "Listed Month Holiday": month_day_holiday_list,
+                    {"Name": new_data.get("Rsname"), "521_ID": details[0], "Year": year, "Month": month, "Listed Month Holiday": month_day_holiday_list,
                         "Attendance Marked on Holiday": mismatch_date, })
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
                 "Hitachi Digital Service": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
@@ -540,6 +543,9 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                     #    "Weekends": weekends, "Public Holidays": public_holiday,
                     "Total Number of Billable Days": total_working_days - leave_taken,
                     "Service Credit Pool Days": leave_taken, })
+            user_leave_record.append({
+                "name": sheet_name, "id_521": details[0], "year": year, "month": month, "leave_days": leave_dates
+            })
             progress_step += int(step)
             progress_bar.setValue(progress_step)
         else:
@@ -648,7 +654,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             else:
                 wb_style.save(excel_file_path)
 
-        return [200, "Report Generated Successfully.", user_data, non_complaince_user]
+        return [200, "Report Generated Successfully.", user_data, non_complaince_user, user_leave_record]
 
     except Exception as e:
         # Log the error
@@ -840,8 +846,10 @@ class MainWindow(QMainWindow):
                                 id_521 TEXT,
                                 year TEXT,
                                 month TEXT,
-                                marked_leave TEXT,
-                                month_leave TEXT,
+                                observed_leave_count TEXT,
+                                observed_leave_dates TEXT,
+                                month_holiday_count TEXT,
+                                month_holiday_dates TEXT,
                                 PRIMARY KEY (name, year, month)
                             )
                         '''
@@ -1818,7 +1826,7 @@ class MainWindow(QMainWindow):
                     coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
                     valid_rsnames)]
 
-                status, response, user_data, non_complaince_resources = (generate_excel(
+                status, response, user_data, non_complaince_resources, user_leave_record = (generate_excel(
                         self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST, self.name_mapping,
                         self.name_order_list, self.progress_bar))
                 if status == 200:
@@ -1836,13 +1844,181 @@ class MainWindow(QMainWindow):
 
                 if non_complaince_resources:
                     self.non_compliance_resources(non_complaince_resources, f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
+                    self.update_non_complaint_user(non_complaince_resources)
+
+                if user_leave_record:
+                    self.update_user_leave(user_leave_record)
 
             # sys.exit(1)
             self.progress_bar.setValue(100)
         else:
             self.show_message(f"Error: Please provide raw excel file as an input.",
                               "error", 5000)
-    
+
+    def update_user_leave(self, data):
+        """
+        Updates the user_leave table with the provided data.
+        Data is expected as a list of dictionaries in the following format:
+          [{"name": sheet_name, "id_521": details[0], "year": year, "month": month, "leave_days": leave_dates}, ...]
+
+        The function checks for an existing record using either (name, year, month) or (id_521, year, month).
+        If a record exists, it updates it; otherwise, it inserts a new record.
+        """
+        try:
+            cursor = self.db_connection.cursor()
+
+            for d in data:
+                name = d.get("name", "")
+                id_521 = d.get("id_521", "")
+                year = str(d.get("year", ""))
+                month = d.get("month", "")
+                leave_days = ",".join(str(x) for x in d.get("leave_days", [])) if d.get("leave_days") else ""
+
+
+                try:
+                    # Check if a record exists using either (name, year, month) or (id_521, year, month)
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM user_leave 
+                        WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
+                        """,
+                        (name, year, month, id_521, year, month)
+                    )
+                    exists = cursor.fetchone()[0]
+                except sqlite3.Error as e:
+                    print(f"Error checking existence for {name}: {e}")
+                    continue  # Skip this record if an error occurs
+
+                if exists:
+                    try:
+                        # Update the existing record
+                        cursor.execute(
+                            """
+                            UPDATE user_leave
+                            SET id_521 = ?, leave_days = ?
+                            WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
+                            """,
+                            (id_521, leave_days, name, year, month, id_521, year, month)
+                        )
+                    except sqlite3.Error as e:
+                        print(f"Error updating record for {name}: {e}")
+                        continue
+                else:
+                    try:
+                        # Insert a new record
+                        cursor.execute(
+                            """
+                            INSERT INTO user_leave (name, id_521, year, month, leave_days)
+                            VALUES (?, ?, ?, ?, ?)
+                            """,
+                            (name, id_521, year, month, leave_days)
+                        )
+                    except sqlite3.Error as e:
+                        print(f"Error inserting record for {name}: {e}")
+                        continue
+
+            self.db_connection.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            self.db_connection.rollback()
+        finally:
+            cursor.close()
+
+    def update_non_complaint_user(self, data):
+        """
+        Updates the non_complaint_user table with the new columns:
+        observed_leave_count, observed_leave_dates, month_holiday_count, and month_holiday_dates.
+
+        For each record in the data list:
+          - observed_leave_count is the number of entries in "Attendance Marked on Holiday"
+          - observed_leave_dates is a comma-separated list from "Attendance Marked on Holiday"
+          - month_holiday_count is the number of entries in "Listed Month Holiday"
+          - month_holiday_dates is a comma-separated list from "Listed Month Holiday"
+
+        The function checks if a record exists using either (name, year, month) or (id_521, year, month).
+        If a record exists, it updates it; otherwise, it inserts a new record.
+        """
+        try:
+            cursor = self.db_connection.cursor()
+
+            for d in data:
+                name = d.get("Name", "")
+                id_521 = d.get("521_ID", "")
+                year = str(d.get("Year", ""))
+                month = d.get("Month", "")
+
+                # Get lists of holidays and attendance marked dates
+                listed_holidays = d.get("Listed Month Holiday", [])
+                attendance_marked = d.get("Attendance Marked on Holiday", [])
+
+                # Prepare new column values
+                observed_leave_count = str(len(attendance_marked)) if attendance_marked else "0"
+                observed_leave_dates = ",".join(attendance_marked) if attendance_marked else ""
+                month_holiday_count = str(len(listed_holidays)) if listed_holidays else "0"
+                month_holiday_dates = ",".join(listed_holidays) if listed_holidays else ""
+
+                try:
+                    # Check if a record already exists (by either key combination)
+                    cursor.execute(
+                        """
+                        SELECT COUNT(*) FROM non_complaint_user 
+                        WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
+                        """,
+                        (name, year, month, id_521, year, month)
+                    )
+                    exists = cursor.fetchone()[0]
+                except sqlite3.Error as e:
+                    print(f"Error checking existence for {name}: {e}")
+                    continue  # Skip this record if an error occurs
+
+                if exists:
+                    try:
+                        # Update existing record
+                        cursor.execute(
+                            """
+                            UPDATE non_complaint_user
+                            SET id_521 = ?,
+                                observed_leave_count = ?,
+                                observed_leave_dates = ?,
+                                month_holiday_count = ?,
+                                month_holiday_dates = ?
+                            WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
+                            """,
+                            (id_521,
+                             observed_leave_count,
+                             observed_leave_dates,
+                             month_holiday_count,
+                             month_holiday_dates,
+                             name, year, month,
+                             id_521, year, month)
+                        )
+                    except sqlite3.Error as e:
+                        print(f"Error updating record for {name}: {e}")
+                        continue
+                else:
+                    try:
+                        # Insert new record
+                        cursor.execute(
+                            """
+                            INSERT INTO non_complaint_user 
+                            (name, id_521, year, month, observed_leave_count, observed_leave_dates, month_holiday_count, month_holiday_dates)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                            """,
+                            (name, id_521, year, month,
+                             observed_leave_count, observed_leave_dates,
+                             month_holiday_count, month_holiday_dates)
+                        )
+                    except sqlite3.Error as e:
+                        print(f"Error inserting record for {name}: {e}")
+                        continue
+
+            self.db_connection.commit()
+        except sqlite3.Error as e:
+            print(f"Database error: {e}")
+            self.db_connection.rollback()
+        finally:
+            cursor.close()
+
     def upload_file(self):
         file_dialog = QFileDialog(self)
         filepath, _ = file_dialog.getOpenFileName(self, "Open Excel File", "", "Excel Files (*.xlsx *.xls, *.csv)")
