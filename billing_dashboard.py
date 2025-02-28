@@ -2787,20 +2787,45 @@ class MainWindow(QMainWindow):
         """)
 
         dialog.exec()
+
     def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
-        """Save edited data to database"""
+        """Save edited data to database by checking for primary key columns first."""
         try:
             cursor = self.db_connection.cursor()
 
-            # Prepare update query
-            set_clause = ", ".join([f"{col} = ?" for col in columns])
-            where_clause = " AND ".join([f"{col} = ?" for col in columns])
-            query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+            # Retrieve table schema to determine primary key columns.
+            cursor.execute(f"PRAGMA table_info({table_name})")
+            table_info = cursor.fetchall()
+            # Each row is (cid, name, type, notnull, dflt_value, pk)
+            primary_keys = [info[1] for info in table_info if info[5] != 0]
 
-            # Get new values and execute update
-            new_values = [input_fields[col].text() for col in columns]
-            old_values = list(old_row_data)
-            cursor.execute(query, new_values + old_values)
+            if primary_keys:
+                # Update only non-primary key columns, and use the old primary key values in WHERE.
+                update_columns = [col for col in columns if col not in primary_keys]
+                set_clause = ", ".join([f"{col} = ?" for col in update_columns])
+                where_clause = " AND ".join([f"{col} = ?" for col in primary_keys])
+                query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+
+                # Get new values for non-primary key columns.
+                new_values = [input_fields[col].text() for col in update_columns]
+
+                # Retrieve old primary key values based on their index in 'columns'
+                old_pk_values = []
+                for pk in primary_keys:
+                    if pk in columns:
+                        idx = columns.index(pk)
+                        old_pk_values.append(old_row_data[idx])
+                params = new_values + old_pk_values
+            else:
+                # Fallback: if no primary key is defined, use all columns in the WHERE clause.
+                set_clause = ", ".join([f"{col} = ?" for col in columns])
+                where_clause = " AND ".join([f"{col} = ?" for col in columns])
+                query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+                new_values = [input_fields[col].text() for col in columns]
+                old_values = list(old_row_data)
+                params = new_values + old_values
+
+            cursor.execute(query, params)
             self.db_connection.commit()
 
             QMessageBox.information(self, "Success", "Record updated successfully.")
