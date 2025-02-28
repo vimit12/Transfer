@@ -1764,6 +1764,10 @@ class MainWindow(QMainWindow):
         Adjusts column width automatically, adds a 'Total' row at the end,
         aligns only the Name column to left (others center) and applies borders
         to the entire table.
+
+        For the "Total Number of Billable Days" column, the cell is set as a formula
+        referencing cell D36 on the 'Data' sheet. For the "Leave Days" column, the cell
+        is set as a formula referencing cell B36 on the 'Data' sheet.
         """
         # Load existing workbook
         wb = load_workbook(filename)
@@ -1801,7 +1805,7 @@ class MainWindow(QMainWindow):
         # ------------------------------------------------------
         start_row = 5
         for idx, entry in enumerate(data, start=start_row):
-            # Column B: Name (left-aligned)
+            # Column B: Name (left-aligned) with hyperlink if available
             sheet_name = entry.get("Name", "")
             cell_B = sheet.cell(row=idx, column=2, value=sheet_name)
             if sheet_name:
@@ -1812,12 +1816,16 @@ class MainWindow(QMainWindow):
             cell_B.border = cell_border
 
             # Column C: Total Number of Billable Days (center-aligned)
-            cell_C = sheet.cell(row=idx, column=3, value=entry.get("Total Number of Billable Days", 0))
+            # Reference cell D36 on the 'Data' sheet so that if it changes, this value updates
+            cell_C = sheet.cell(row=idx, column=3)
+            cell_C.value = f"='{sheet_name}'!$D$36"
             cell_C.alignment = Alignment(horizontal="center", vertical="center")
             cell_C.border = cell_border
 
-            # Column D: Service Credit Pool Days (center-aligned)
-            cell_D = sheet.cell(row=idx, column=4, value=entry.get("Service Credit Pool Days", 0))
+            # Column D: Leave Days (center-aligned)
+            # Reference cell B36 on the 'Data' sheet so that if it changes, this value updates
+            cell_D = sheet.cell(row=idx, column=4)
+            cell_D.value = f"='{sheet_name}'!$B$36"
             cell_D.alignment = Alignment(horizontal="center", vertical="center")
             cell_D.border = cell_border
 
