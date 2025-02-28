@@ -899,16 +899,16 @@ class MainWindow(QMainWindow):
                                 holidays TEXT
                             )
                         ''',
-                'user': '''
-                            CREATE TABLE IF NOT EXISTS user (
-                                name TEXT,
-                                id_521 TEXT,
-                                month TEXT,
-                                year TEXT,
-                                attendance_report TEXT,
-                                PRIMARY KEY (name, month, year)
-                            )
-                        ''',
+                # 'user': '''
+                #             CREATE TABLE IF NOT EXISTS user (
+                #                 name TEXT,
+                #                 id_521 TEXT,
+                #                 month TEXT,
+                #                 year TEXT,
+                #                 attendance_report TEXT,
+                #                 PRIMARY KEY (name, month, year)
+                #             )
+                #         ''',
                 'user_leave': '''
                             CREATE TABLE IF NOT EXISTS user_leave (
                                 name TEXT,
@@ -2541,6 +2541,9 @@ class MainWindow(QMainWindow):
         """Display contents of selected table from dropdown"""
         if not table_name:
             return
+        # Clear the table view before loading new data
+        self.table_view.clearContents()
+        self.table_view.setRowCount(0)
 
         try:
             cursor = self.db_connection.cursor()
@@ -2555,6 +2558,9 @@ class MainWindow(QMainWindow):
             self.table_view.setColumnCount(len(columns) + 1)
             self.table_view.setHorizontalHeaderLabels(columns + ["Action"])
 
+            # Add horizontal scroll bar (set to appear as needed)
+            self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+
             # Clear existing filters
             while self.filter_layout.count():
                 if child := self.filter_layout.takeAt(0):
@@ -2562,21 +2568,21 @@ class MainWindow(QMainWindow):
                         widget.deleteLater()
 
             # Add new filter inputs
-            # Add filter input boxes (inside show_table_contents)
             self.filter_inputs = []
             for col_name in columns:
                 filter_edit = QLineEdit()
                 filter_edit.setPlaceholderText(f"Filter {col_name}")
-                filter_edit.textChanged.connect(self.apply_filters)  # Connect filtering
+                filter_edit.textChanged.connect(self.apply_filters)
                 self.filter_layout.addWidget(filter_edit)
                 self.filter_inputs.append(filter_edit)
             self.filter_layout.addWidget(QWidget())  # Spacer for action column
 
             # Configure columns
             for col in range(len(columns)):
-                mode = QHeaderView.ResizeMode.Stretch if len(columns) <= 5 else QHeaderView.ResizeMode.Interactive
+                mode = QHeaderView.ResizeMode.Stretch if len(columns) <= 50 else QHeaderView.ResizeMode.Interactive
                 self.table_view.horizontalHeader().setSectionResizeMode(col, mode)
-            self.table_view.horizontalHeader().setSectionResizeMode(len(columns), QHeaderView.ResizeMode.ResizeToContents)
+            self.table_view.horizontalHeader().setSectionResizeMode(len(columns),
+                                                                    QHeaderView.ResizeMode.ResizeToContents)
 
             # Populate data
             for row_idx, row in enumerate(rows):
