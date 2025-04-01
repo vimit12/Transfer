@@ -1,30 +1,25 @@
 import sys
 from collections import Counter
-from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget,
-    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit,
-    QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
-    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea)
-from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor
-from PyQt6 import QtCore, QtGui, QtWidgets
+    QPushButton, QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit,
+    QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView, QDialog, QProgressBar,
+    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox, QPlainTextEdit, QScrollArea)
+from PyQt6.QtGui import QFont, QIcon
+from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
 import sqlite3
 import json
-from openpyxl import load_workbook, Workbook
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
-from openpyxl.utils import quote_sheetname
 from openpyxl.utils import get_column_letter
-from dateutil import parser
 from datetime import datetime
 import calendar
 import itertools
 import os
 import re
 from dateutil.parser import parse
-from openpyxl import load_workbook
+from openpyxl import load_workbook, Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.worksheet.merge import MergeCell, MergeCells
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
 
