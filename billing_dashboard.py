@@ -2917,7 +2917,7 @@ class MainWindow(QMainWindow):
 
         content = QLabel("Proprietary Software - Hitachi Digital Service\n\n"
                          "Version 1.2.0\n"
-                         "Build Date: 2025-03-03\n\n"
+                         "Build Date: 2025-04-01\n\n"
                          "Developed using:\n"
                          "• Python 3.11\n"
                          "• PyQt6 Framework\n"
