@@ -1757,6 +1757,22 @@ class MainWindow(QMainWindow):
         wb.save(filename)
         print(f"Data written to {filename} with formatting.")
 
+    def find_cell_with_text(self, file_name, search_text="Leaves Taken"):
+        # Load the workbook and get the active sheet
+        wb = load_workbook(file_name)
+        sheet = wb.active
+
+        # Iterate over cells to find the matching text
+        for row in sheet.iter_rows():
+            for cell in row:
+                if cell.value == search_text:
+                    match = re.match(r"([A-Za-z]+)(\d+)", cell.coordinate)
+                    if match:
+                        return [match.group(1), match.group(2)]
+                    else:
+                        return None, None
+
+        return None, None
     def add_summary_page(self, data, filename="my_workbook.xlsx"):
         """
         Creates a new sheet called 'Summary' at index 0 in the workbook.
@@ -1770,6 +1786,7 @@ class MainWindow(QMainWindow):
         is set as a formula referencing cell B36 on the 'Data' sheet.
         """
         # Load existing workbook
+        char_content, char_value = self.find_cell_with_text(filename)
         wb = load_workbook(filename)
         # Create a new sheet at index 0
         sheet = wb.create_sheet("Summary", 0)
@@ -1804,6 +1821,7 @@ class MainWindow(QMainWindow):
         # 2) Write Data Starting from Row 5
         # ------------------------------------------------------
         start_row = 5
+        billable_content, billable_value = self.find_cell_with_text(filename, "Billable Days")
         for idx, entry in enumerate(data, start=start_row):
             # Column B: Name (left-aligned) with hyperlink if available
             sheet_name = entry.get("Name", "")
@@ -1818,14 +1836,14 @@ class MainWindow(QMainWindow):
             # Column C: Total Number of Billable Days (center-aligned)
             # Reference cell D36 on the 'Data' sheet so that if it changes, this value updates
             cell_C = sheet.cell(row=idx, column=3)
-            cell_C.value = f"='{sheet_name}'!$D$36"
+            cell_C.value = f"='{sheet_name}'!${chr(ord(billable_content) + 1)}${billable_value}"
             cell_C.alignment = Alignment(horizontal="center", vertical="center")
             cell_C.border = cell_border
 
             # Column D: Leave Days (center-aligned)
             # Reference cell B36 on the 'Data' sheet so that if it changes, this value updates
             cell_D = sheet.cell(row=idx, column=4)
-            cell_D.value = f"='{sheet_name}'!$B$36"
+            cell_D.value = f"='{sheet_name}'!${chr(ord(char_content) + 1)}${char_value}"
             cell_D.alignment = Alignment(horizontal="center", vertical="center")
             cell_D.border = cell_border
 
@@ -1896,7 +1914,7 @@ class MainWindow(QMainWindow):
     def generate_report(self):
 
         if not all([self.raw_category_list, self.categories, self.name_mapping, self.name_order_list]):
-            if not (result := self.fetch_all_resource_mappings()):
+            if not (self.fetch_all_resource_mappings()):
                 self.show_message("Error: Please select proper category file!", "error", 5000)
                 return None
 
@@ -1923,28 +1941,29 @@ class MainWindow(QMainWindow):
                     coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
                     valid_rsnames)]
 
-                status, response, user_data, non_complaince_resources, user_leave_record = (generate_excel(
-                        self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST, self.name_mapping,
-                        self.name_order_list, self.progress_bar))
-                if status == 200:
-                    remaining_val = 100 - self.progress_bar.value()
+                if filtered_df:
+                    status, response, user_data, non_complaince_resources, user_leave_record = (generate_excel(
+                            self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST, self.name_mapping,
+                            self.name_order_list, self.progress_bar))
+                    if status == 200:
+                        remaining_val = 100 - self.progress_bar.value()
 
-                    step = remaining_val / 3
-                    if self.categories:
-                        # self.add_category_data(user_data)
-                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
-                        self.add_summary_page(user_data, self.file_name)
-                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
-                else:
-                    self.show_message(f"Error: {response}",
-                                      "error", 5000)
+                        step = remaining_val / 3
+                        if self.categories:
+                            # self.add_category_data(user_data)
+                            self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                            self.add_summary_page(user_data, self.file_name)
+                            self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                    else:
+                        self.show_message(f"Error: {response}",
+                                          "error", 5000)
 
-                if non_complaince_resources:
-                    self.non_compliance_resources(non_complaince_resources, f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
-                    self.update_non_complaint_user(non_complaince_resources)
+                    if non_complaince_resources:
+                        self.non_compliance_resources(non_complaince_resources, f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
+                        self.update_non_complaint_user(non_complaince_resources)
 
-                if user_leave_record:
-                    self.update_user_leave(user_leave_record)
+                    if user_leave_record:
+                        self.update_user_leave(user_leave_record)
 
             # sys.exit(1)
             self.progress_bar.setValue(100)
