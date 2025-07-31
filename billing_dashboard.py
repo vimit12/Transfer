@@ -29,7 +29,6 @@ import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
 
 
-
 # ======================
 # THEME DEFINITIONS
 # ======================
