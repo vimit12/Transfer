@@ -1,11 +1,11 @@
 import sys
 from collections import Counter
 from datetime import datetime
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget,
-    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit,
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout,
+    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
     QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
-    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea)
-from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor
+    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea, QAbstractItemView)
+from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor, QColor
 from PyQt6 import QtCore, QtGui, QtWidgets
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
 import sqlite3
@@ -1107,73 +1107,182 @@ class MainWindow(QMainWindow):
             self.import_holidays_from_excel()
 
     def import_holidays_from_excel(self):
-        """Handle Excel import with datetime-formatted cells"""
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "", "Excel Files (*.xlsx *.xls)")
+        """Handle Excel and Numbers import with datetime-formatted cells"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "",
+            "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
 
         if not file_path:
             return
 
         try:
-            wb = load_workbook(filename=file_path)
-            sheet = wb.active
+            file_extension = os.path.splitext(file_path)[1].lower()
+            holidays = []
+            excel_year = None
 
-            # Get year from first cell
-            year_cell = sheet['A1'].value
-            if not isinstance(year_cell, int) or len(str(year_cell)) != 4:
-                raise ValueError("First cell must contain a 4-digit year (e.g., 2025)")
-            excel_year = str(year_cell)
+            if file_extension in ['.xlsx', '.xls']:
+                # Handle Excel files with openpyxl
+                wb = load_workbook(filename=file_path)
+                sheet = wb.active
+
+                # Get year from first cell
+                year_cell = sheet['A1'].value
+                if not isinstance(year_cell, int) or len(str(year_cell)) != 4:
+                    raise ValueError("First cell must contain a 4-digit year (e.g., 2025)")
+                excel_year = str(year_cell)
+
+                # Process date cells
+                for row in sheet.iter_rows(min_row=2, values_only=True):
+                    cell_value = row[0]
+                    if not cell_value:
+                        break
+
+                    # Handle different cell types
+                    if isinstance(cell_value, datetime):
+                        date_obj = cell_value
+                    else:
+                        try:
+                            # Try parsing string format
+                            if isinstance(cell_value, str):
+                                # Try multiple date formats
+                                date_formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y"]
+                                date_obj = None
+                                for fmt in date_formats:
+                                    try:
+                                        date_obj = datetime.strptime(cell_value, fmt)
+                                        break
+                                    except ValueError:
+                                        continue
+
+                                if date_obj is None:
+                                    raise ValueError(f"Unable to parse date format: {cell_value}")
+                            else:
+                                # Convert other types to string and try parsing
+                                date_obj = datetime.strptime(str(cell_value), "%Y-%m-%d %H:%M:%S")
+                        except ValueError as ve:
+                            raise ValueError(f"Invalid date format: {cell_value} - {str(ve)}")
+
+                    # Validate year match
+                    if str(date_obj.year) != excel_year:
+                        raise ValueError(f"Date {date_obj.date()} doesn't match file year {excel_year}")
+
+                    formatted_date = date_obj.strftime("%d-%m-%Y")
+                    if formatted_date not in holidays:  # Avoid duplicates
+                        holidays.append(formatted_date)
+
+            elif file_extension == '.numbers':
+                # Handle Numbers files
+                try:
+                    # First try: attempt direct reading with pandas
+                    try:
+                        df = pd.read_excel(file_path, header=None, engine='openpyxl')
+                    except:
+                        # Second try: read as CSV if Numbers exported as such
+                        df = pd.read_csv(file_path, header=None)
+
+                    if df.empty:
+                        raise ValueError("File appears to be empty")
+
+                    # Get year from first cell
+                    year_cell = df.iloc[0, 0]
+                    if not str(year_cell).isdigit() or len(str(year_cell)) != 4:
+                        raise ValueError("First cell must contain a 4-digit year (e.g., 2025)")
+                    excel_year = str(year_cell)
+
+                    # Process dates
+                    for idx in range(1, len(df)):
+                        cell_value = df.iloc[idx, 0]
+
+                        if pd.isna(cell_value):
+                            continue
+
+                        try:
+                            # Handle different data types
+                            if isinstance(cell_value, str):
+                                # Try multiple date formats
+                                date_formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y",
+                                    "%Y/%m/%d"]
+                                date_obj = None
+                                for fmt in date_formats:
+                                    try:
+                                        date_obj = datetime.strptime(cell_value, fmt)
+                                        break
+                                    except ValueError:
+                                        continue
+
+                                if date_obj is None:
+                                    raise ValueError(f"Unable to parse date format: {cell_value}")
+
+                            elif isinstance(cell_value, pd.Timestamp):
+                                date_obj = cell_value.to_pydatetime()
+                            elif hasattr(cell_value, 'date'):
+                                date_obj = cell_value
+                            else:
+                                # Try to convert to datetime
+                                date_obj = pd.to_datetime(cell_value).to_pydatetime()
+
+                            # Validate year match
+                            if str(date_obj.year) != excel_year:
+                                raise ValueError(f"Date {date_obj.date()} doesn't match file year {excel_year}")
+
+                            formatted_date = date_obj.strftime("%d-%m-%Y")
+                            if formatted_date not in holidays:  # Avoid duplicates
+                                holidays.append(formatted_date)
+
+                        except Exception as e:
+                            raise ValueError(f"Error processing row {idx + 1}: {str(e)}")
+
+                except Exception as numbers_error:
+                    # If all reading attempts fail, show conversion instructions
+                    conversion_msg = ("Unable to read Numbers file directly.\n\n"
+                                      "Please convert to Excel format:\n"
+                                      "1. Open your Numbers file\n"
+                                      "2. Go to File → Export To → Excel...\n"
+                                      "3. Save as .xlsx format\n"
+                                      "4. Use the exported .xlsx file\n\n"
+                                      f"Technical error: {str(numbers_error)}")
+
+                    reply = QMessageBox.question(self, "Numbers File Conversion Required",
+                        "Numbers file could not be read directly.\n\n"
+                        "Would you like to see conversion instructions?",
+                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+                    if reply == QMessageBox.StandardButton.Yes:
+                        QMessageBox.information(self, "Conversion Instructions", conversion_msg)
+
+                    return
+
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}")
+
+            if not holidays:
+                QMessageBox.warning(self, "No Data", "No valid holiday dates found in the file")
+                return
 
             # Check for existing year in database
             cursor = self.db_connection.cursor()
             cursor.execute("SELECT year FROM holiday WHERE year = ?", (excel_year,))
-            # if cursor.fetchone():
-            #     QMessageBox.warning(self, "Data Exists", f"Holidays for {excel_year} already exist")
-            #     return
-
             exists = cursor.fetchone()
 
             if exists:
                 confirm = QMessageBox.question(self, "Override Confirmation",
-                                               f"Holidays for {excel_year} already exist. Override?",
-                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                    f"Holidays for {excel_year} already exist. Override?",
+                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if confirm != QMessageBox.StandardButton.Yes:
                     return
 
-            # Process date cells
-            holidays = []
-            for row in sheet.iter_rows(min_row=2, values_only=True):
-                cell_value = row[0]
-                if not cell_value:break
-
-                # Handle different cell types
-                if isinstance(cell_value, datetime):
-                    date_obj = cell_value
-                else:
-                    try:
-                        # Try parsing string format
-                        date_obj = datetime.strptime(str(cell_value), "%Y-%m-%d %H:%M:%S")
-                    except ValueError:
-                        raise ValueError(f"Invalid date format: {cell_value}")
-
-                # Validate year match
-                if str(date_obj.year) != excel_year:
-                    raise ValueError(f"Date {date_obj} doesn't match Excel year {excel_year}")
-
-                holidays.append(date_obj.strftime("%d-%m-%Y"))
-
-            # Insert into database
-            # cursor.execute("INSERT INTO holiday (year, holidays) VALUES (?, ?)", (excel_year, json.dumps(holidays)))
-                # Insert/Update data
-                cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
-                               (excel_year, json.dumps(holidays)))
+            # Insert/Update data
+            cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
+                (excel_year, json.dumps(holidays)))
             self.db_connection.commit()
 
-            QMessageBox.information(self, "Import Successful", f"Added {len(holidays)} holidays for {excel_year}")
+            file_type = "Excel" if file_extension in ['.xlsx', '.xls'] else "Numbers"
+            QMessageBox.information(self, "Import Successful",
+                f"Successfully imported {len(holidays)} holidays for {excel_year} from {file_type} file")
 
         except Exception as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import holidays:\n{str(e)}")
         finally:
-            if cursor:
+            if 'cursor' in locals() and cursor:
                 cursor.close()
 
     def update_database_page(self, all_tables, new_tables=None):
@@ -2283,8 +2392,9 @@ class MainWindow(QMainWindow):
         msg_box.exec()
 
     def load_holidays_to_db(self):
-        """Open file dialog and import holidays from Excel"""
-        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday Excel File", "", "Excel Files (*.xlsx *.xls)")
+        """Open file dialog and import holidays from Excel or Numbers"""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "",
+            "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
 
         if not file_path:
             return
@@ -2293,6 +2403,7 @@ class MainWindow(QMainWindow):
             # Get file info before processing
             file_name = os.path.basename(file_path)
             file_size = os.path.getsize(file_path)
+            file_extension = os.path.splitext(file_path)[1].lower()
 
             # Convert bytes to human-readable format
             def sizeof_fmt(num, suffix='B'):
@@ -2306,8 +2417,60 @@ class MainWindow(QMainWindow):
             display_text = f"{file_name} ({size_str})"
             self.holiday_input.setPlainText(display_text)
 
-            # Read Excel file
-            df = pd.read_excel(file_path, header=None)
+            # Read file based on extension
+            df = None
+
+            if file_extension in ['.xlsx', '.xls']:
+                # Read Excel file
+                df = pd.read_excel(file_path, header=None)
+
+            elif file_extension == '.numbers':
+                # Handle Numbers files
+                try:
+                    # Try using pandas with xlrd engine (if Numbers file is converted)
+                    df = pd.read_excel(file_path, header=None, engine='openpyxl')
+                except:
+                    try:
+                        # Alternative approach - try to read as CSV if Numbers exported as such
+                        df = pd.read_csv(file_path, header=None)
+                    except:
+                        # If direct reading fails, show instructions for manual conversion
+                        msg = ("Numbers files need to be exported as Excel format first.\n\n"
+                               "Steps:\n"
+                               "1. Open your Numbers file\n"
+                               "2. Go to File → Export To → Excel...\n"
+                               "3. Save as .xlsx format\n"
+                               "4. Use the exported .xlsx file with this application")
+                        self.show_message(f"File Format Note: {msg}", "info", 8000)
+
+                        # Ask user if they want to try alternative method
+                        reply = QMessageBox.question(self, "Numbers File Detected",
+                            "Numbers files require conversion to Excel format.\n\n"
+                            "Would you like to:\n"
+                            "• YES: Get instructions for manual conversion\n"
+                            "• NO: Cancel and select a different file",
+                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+                        if reply == QMessageBox.StandardButton.Yes:
+                            QMessageBox.information(self, "Conversion Instructions", "To convert your Numbers file:\n\n"
+                                                                                     "1. Open the Numbers file\n"
+                                                                                     "2. Click File → Export To → Excel...\n"
+                                                                                     "3. Choose 'Advanced Options' if needed\n"
+                                                                                     "4. Select .xlsx format\n"
+                                                                                     "5. Save the file\n"
+                                                                                     "6. Return here and select the .xlsx file\n\n"
+                                                                                     "Your data structure should be:\n"
+                                                                                     "• First row: Year (e.g., 2025)\n"
+                                                                                     "• Following rows: Holiday dates")
+                        return
+            else:
+                raise ValueError(f"Unsupported file format: {file_extension}")
+
+            if df is None or df.empty:
+                raise ValueError("Failed to read the file or file is empty")
+
+            # Clear previous holiday list
+            self.HOLIDAY_LIST = []
 
             # Get year from first cell
             excel_year = str(df.iloc[0, 0])
@@ -2315,6 +2478,7 @@ class MainWindow(QMainWindow):
                 raise ValueError("First cell must contain a 4-digit year")
 
             # Process dates
+            processed_dates = 0
             for idx in range(1, len(df)):
                 date_val = df.iloc[idx, 0]
 
@@ -2324,30 +2488,50 @@ class MainWindow(QMainWindow):
                 try:
                     # Handle different date formats
                     if isinstance(date_val, str):
-                        # Parse string date
-                        date_obj = datetime.strptime(date_val, "%Y-%m-%d")
+                        # Try multiple date formats
+                        date_formats = ["%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y", "%Y/%m/%d"]
+                        date_obj = None
+
+                        for fmt in date_formats:
+                            try:
+                                date_obj = datetime.strptime(date_val, fmt)
+                                break
+                            except ValueError:
+                                continue
+
+                        if date_obj is None:
+                            raise ValueError(f"Unable to parse date format: {date_val}")
+
                     elif isinstance(date_val, pd.Timestamp):
                         # Convert pandas Timestamp to datetime
                         date_obj = date_val.to_pydatetime()
-                    else:
-                        # Assume native datetime object
+                    elif hasattr(date_val, 'date'):
+                        # Handle datetime objects
                         date_obj = date_val
+                    else:
+                        # Try to convert to datetime
+                        date_obj = pd.to_datetime(date_val).to_pydatetime()
 
                     # Validate year match
                     if str(date_obj.year) != excel_year:
-                        msg = f"Invalid Date : Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}"
+                        msg = f"Invalid Date: Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match file year {excel_year}"
                         self.show_message(msg, "error", 5000)
-                        # QMessageBox.critical(self, "Invalid Date",
-                        #     f"Error in row {idx + 1}:\nDate {date_obj.date()} doesn't match Excel year {excel_year}")
                         return  # Stop the operation immediately
 
-                    self.HOLIDAY_LIST.append(date_obj.strftime("%d-%m-%Y"))
+                    formatted_date = date_obj.strftime("%d-%m-%Y")
+                    if formatted_date not in self.HOLIDAY_LIST:  # Avoid duplicates
+                        self.HOLIDAY_LIST.append(formatted_date)
+                        processed_dates += 1
 
                 except Exception as e:
-                    # QMessageBox.critical(self, "Invalid Date", f"Error in row {idx + 1}:\n{str(e)}")
-                    msg = f"Invalid Date : Error in row {idx + 1}:\n{str(e)}"
+                    msg = f"Invalid Date: Error in row {idx + 1}:\n{str(e)}"
                     self.show_message(msg, "error", 5000)
                     return
+
+            if processed_dates == 0:
+                msg = "No valid holiday dates found in the file"
+                self.show_message(msg, "warning", 5000)
+                return
 
             # Check for existing entry
             cursor = self.db_connection.cursor()
@@ -2368,22 +2552,19 @@ class MainWindow(QMainWindow):
 
             # Update UI
             current_year = QDate.currentDate().year()
-            if not self.year_combo.findText(excel_year):
+            if self.year_combo.findText(excel_year) == -1:  # If year not found in combo
                 self.year_combo.addItem(excel_year)
             self.year_combo.setCurrentText(excel_year)
 
-            msg = f"Loaded {len(self.HOLIDAY_LIST)} holidays for {excel_year}"
+            msg = f"Successfully loaded {processed_dates} holidays for {excel_year} from {file_extension.upper()} file"
             self.show_message(msg, "success", 5000)
-            # QMessageBox.information(self, "Success", f"Loaded {len(holidays)} holidays for {excel_year}")
 
         except Exception as e:
-            # QMessageBox.critical(self, "Import Error", f"Failed to load holidays:\n{str(e)}")
             msg = f"Import Error: Failed to load holidays:\n{str(e)}"
             self.show_message(msg, "error", 5000)
         finally:
-            if cursor:
+            if 'cursor' in locals() and cursor:
                 cursor.close()
-
     def show_holiday_viewer(self):
         """Show holiday viewer dialog with table display"""
         dialog = QDialog(self)
@@ -2412,6 +2593,9 @@ class MainWindow(QMainWindow):
         self.holiday_table.setColumnCount(2)
         self.holiday_table.setHorizontalHeaderLabels(["Date", "Day"])
         self.holiday_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        # Make table cells uneditable
+        self.holiday_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
         # Wrap the table in a scroll area
         scroll_area = QScrollArea()
@@ -2504,6 +2688,7 @@ class MainWindow(QMainWindow):
 
         # Export button
         self.export_btn = QPushButton("📤 Export Records")
+        self.export_btn.setFixedHeight(40)
         self.export_btn.clicked.connect(self.export_record)
         self.export_btn.setEnabled(False)
         db_control_layout.addWidget(self.export_btn, 1)
@@ -2530,7 +2715,7 @@ class MainWindow(QMainWindow):
         return page
 
     def show_table_contents(self, table_name):
-        """Display contents of selected table from dropdown"""
+        """Display contents of selected table from dropdown with enhanced UI"""
         if not table_name:
             return
 
@@ -2542,65 +2727,291 @@ class MainWindow(QMainWindow):
             cursor.execute(f"SELECT * FROM {table_name}")
             rows = cursor.fetchall()
 
-            # Configure table view
+            # Configure table view with modern styling
             self.table_view.setRowCount(len(rows))
             self.table_view.setColumnCount(len(columns) + 1)
-            self.table_view.setHorizontalHeaderLabels(columns + ["Action"])
+            self.table_view.setHorizontalHeaderLabels(columns + ["Actions"])
 
-            # Clear existing filters
+            # Make table cells uneditable
+            self.table_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+
+            # Enhanced table styling
+            self.table_view.setStyleSheet("""
+                QTableWidget {
+                    background-color: #ffffff;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    gridline-color: #f0f0f0;
+                    selection-background-color: #e3f2fd;
+                    font-size: 12px;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                }
+                QTableWidget::item {
+                    padding: 12px 8px;
+                    border-bottom: 1px solid #f5f5f5;
+                }
+                QTableWidget::item:selected {
+                    background-color: #e3f2fd;
+                    color: #1976d2;
+                }
+                QTableWidget::item:hover {
+                    background-color: #f8f9fa;
+                }
+                QHeaderView::section {
+                    background-color: #f8f9fa;
+                    color: #424242;
+                    font-weight: bold;
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    padding: 12px 8px;
+                    border: none;
+                    border-bottom: 2px solid #e0e0e0;
+                    border-right: 1px solid #e0e0e0;
+                }
+                QHeaderView::section:first {
+                    border-top-left-radius: 8px;
+                }
+                QHeaderView::section:last {
+                    border-top-right-radius: 8px;
+                    border-right: none;
+                }
+                QScrollBar:vertical {
+                    border: none;
+                    background: #f5f5f5;
+                    width: 12px;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #c0c0c0;
+                    border-radius: 6px;
+                    min-height: 20px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background: #a0a0a0;
+                }
+                QScrollBar:horizontal {
+                    border: none;
+                    background: #f5f5f5;
+                    height: 12px;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:horizontal {
+                    background: #c0c0c0;
+                    border-radius: 6px;
+                    min-width: 20px;
+                }
+                QScrollBar::handle:horizontal:hover {
+                    background: #a0a0a0;
+                }
+                QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                    width: 0;
+                }
+            """)
+
+            # Set row height for better spacing
+            self.table_view.verticalHeader().setDefaultSectionSize(50)
+            self.table_view.verticalHeader().hide()  # Hide row numbers for cleaner look
+
+            # Set alternating row colors
+            self.table_view.setAlternatingRowColors(True)
+
+            # Clear existing filters with animation-like effect
             while self.filter_layout.count():
                 if child := self.filter_layout.takeAt(0):
                     if widget := child.widget():
                         widget.deleteLater()
 
-            # Add new filter inputs
-            # Add filter input boxes (inside show_table_contents)
+            # Enhanced filter section with proper alignment
+            filter_container = QWidget()
+            filter_container.setStyleSheet("""
+                QWidget {
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    margin: 4px;
+                    padding: 8px;
+                }
+            """)
+
+            # Create a grid layout for filters to align with table columns
+            filter_grid_layout = QGridLayout(filter_container)
+            filter_grid_layout.setSpacing(4)
+            filter_grid_layout.setContentsMargins(12, 8, 12, 8)
+
+            # Add filter label
+            filter_label = QLabel("🔍 Filters:")
+            filter_label.setStyleSheet("""
+                QLabel {
+                    color: #424242;
+                    font-weight: bold;
+                    font-size: 12px;
+                    background: none;
+                    padding: 0;
+                }
+            """)
+            filter_grid_layout.addWidget(filter_label, 0, 0, 1, len(columns) + 1)
+
+            # Add enhanced filter inputs aligned with columns
             self.filter_inputs = []
-            for col_name in columns:
+            for col_idx, col_name in enumerate(columns):
                 filter_edit = QLineEdit()
-                filter_edit.setPlaceholderText(f"Filter {col_name}")
-                filter_edit.textChanged.connect(self.apply_filters)  # Connect filtering
-                self.filter_layout.addWidget(filter_edit)
+                filter_edit.setPlaceholderText(col_name)
+                filter_edit.setStyleSheet("""
+                    QLineEdit {
+                        background-color: white;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 6px;
+                        padding: 6px 8px;
+                        font-size: 10px;
+                        min-height: 20px;
+                    }
+                    QLineEdit:focus {
+                        border-color: #2196f3;
+                        background-color: #fafafa;
+                    }
+                    QLineEdit:hover {
+                        border-color: #bdbdbd;
+                    }
+                """)
+                filter_edit.textChanged.connect(self.apply_filters)
+                filter_grid_layout.addWidget(filter_edit, 1, col_idx)
                 self.filter_inputs.append(filter_edit)
-            self.filter_layout.addWidget(QWidget())  # Spacer for action column
 
-            # Configure columns
+            # Add clear filters button in the actions column
+            clear_filters_btn = QPushButton("✖️")
+            clear_filters_btn.setFixedSize(28, 28)
+            clear_filters_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #ff9800;
+                    color: white;
+                    border: none;
+                    border-radius: 14px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #f57c00;
+                }
+                QPushButton:pressed {
+                    background-color: #ef6c00;
+                }
+            """)
+            clear_filters_btn.setToolTip("Clear All Filters")
+            clear_filters_btn.clicked.connect(self.clear_all_filters)
+            filter_grid_layout.addWidget(clear_filters_btn, 1, len(columns))
+
+            # Add the filter container to the main layout
+            self.filter_layout.addWidget(filter_container)
+
+            # Configure columns with better spacing and horizontal scrolling
+            header = self.table_view.horizontalHeader()
+
+            # Enable horizontal scrolling when needed
+            self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+
+            # Set all columns to resize to contents first
             for col in range(len(columns)):
-                mode = QHeaderView.ResizeMode.Stretch if len(columns) <= 5 else QHeaderView.ResizeMode.Interactive
-                self.table_view.horizontalHeader().setSectionResizeMode(col, mode)
-            self.table_view.horizontalHeader().setSectionResizeMode(len(columns), QHeaderView.ResizeMode.ResizeToContents)
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
 
-            # Populate data
+            # Action column fixed width (smaller now)
+            header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
+            self.table_view.setColumnWidth(len(columns), 80)  # Reduced width for smaller buttons
+
+            # Populate data with enhanced styling
             for row_idx, row in enumerate(rows):
                 for col_idx, value in enumerate(row):
-                    item = QTableWidgetItem(str(value))
+                    item = QTableWidgetItem(str(value) if value is not None else "")
                     item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+
+                    # Add subtle styling based on data type
+                    if isinstance(value, (int, float)) and value != 0:
+                        item.setForeground(QColor("#1976d2"))  # Blue for numbers
+                    elif str(value).lower() in ['true', 'false', 'yes', 'no']:
+                        item.setForeground(QColor("#4caf50" if str(value).lower() in ['true', 'yes'] else "#f44336"))
+
                     self.table_view.setItem(row_idx, col_idx, item)
 
-                # Action buttons
+                # Enhanced action buttons
                 action_widget = QWidget()
+                action_widget.setStyleSheet("background-color: transparent;")
                 action_layout = QHBoxLayout(action_widget)
-                action_layout.setContentsMargins(0, 0, 0, 0)
-                action_layout.setSpacing(5)
+                action_layout.setContentsMargins(8, 4, 8, 4)
+                action_layout.setSpacing(6)
 
-                edit_btn = QPushButton("✏️ Edit")
+                # Smaller colored edit button
+                edit_btn = QPushButton("✏️")
+                edit_btn.setFixedSize(28, 28)
+                edit_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #4caf50;
+                        color: white;
+                        border: none;
+                        border-radius: 14px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #45a049;
+                    }
+                    QPushButton:pressed {
+                        background-color: #3d8b40;
+                    }
+                """)
+                edit_btn.setToolTip("Edit Record")
+                edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
 
-                delete_btn = QPushButton("🗑️ Delete")
+                # Smaller colored delete button
+                delete_btn = QPushButton("🗑️")
+                delete_btn.setFixedSize(28, 28)
+                delete_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #f44336;
+                        color: white;
+                        border: none;
+                        border-radius: 14px;
+                        font-weight: bold;
+                        font-size: 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #d32f2f;
+                    }
+                    QPushButton:pressed {
+                        background-color: #c62828;
+                    }
+                """)
+                delete_btn.setToolTip("Delete Record")
+                delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
 
                 action_layout.addWidget(edit_btn)
                 action_layout.addWidget(delete_btn)
+                action_layout.addStretch()  # Center the buttons
+
                 self.table_view.setCellWidget(row_idx, len(columns), action_widget)
 
             # Apply initial filters
             self.apply_filters()
+
+            # Add a subtle drop shadow effect to the table
+            shadow_effect = QGraphicsDropShadowEffect()
+            shadow_effect.setBlurRadius(15)
+            shadow_effect.setColor(QColor(0, 0, 0, 30))
+            shadow_effect.setOffset(0, 2)
+            self.table_view.setGraphicsEffect(shadow_effect)
 
         except sqlite3.Error as e:
             QMessageBox.critical(self, "Database Error", f"Failed to load table:\n{str(e)}")
         finally:
             if cursor:
                 cursor.close()
+
+    def clear_all_filters(self):
+        """Clear all filter inputs"""
+        if hasattr(self, 'filter_inputs'):
+            for filter_input in self.filter_inputs:
+                filter_input.clear()
 
     def apply_filters(self):
         """Apply case-insensitive partial matching filters to table rows"""
@@ -2801,26 +3212,50 @@ class MainWindow(QMainWindow):
     def delete_row(self, table_name, row_data):
         """Delete a row from the database after confirmation"""
         confirm = QMessageBox.question(self, "Confirm Delete", "Are you sure you want to delete this record?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if confirm == QMessageBox.StandardButton.Yes:
             try:
                 cursor = self.db_connection.cursor()
 
-                # Prepare delete query
-                where_clause = " AND ".join([f"{col} = ?" for col in row_data])
+                # Get column names for the table
+                cursor.execute(f"PRAGMA table_info({table_name})")
+                columns_info = cursor.fetchall()
+                column_names = [col[1] for col in columns_info]  # col[1] contains column name
+
+                # Ensure we have the same number of columns as data values
+                if len(column_names) != len(row_data):
+                    QMessageBox.critical(self, "Error", "Column count mismatch with row data.")
+                    return
+
+                # Prepare delete query using column names
+                where_conditions = []
+                where_values = []
+
+                for col_name, value in zip(column_names, row_data):
+                    if value is not None and value != '':  # Skip empty values
+                        where_conditions.append(f"{col_name} = ?")
+                        where_values.append(value)
+                    else:
+                        where_conditions.append(f"{col_name} IS NULL")
+
+                where_clause = " AND ".join(where_conditions)
                 query = f"DELETE FROM {table_name} WHERE {where_clause}"
 
-                cursor.execute(query, row_data)
-                # self.db_connection.commit()
+                cursor.execute(query, where_values)
+                self.db_connection.commit()  # Uncommented this - you need to commit the transaction
 
-                QMessageBox.information(self, "Deleted", "Record deleted successfully.")
-
-                # Refresh table view
-                self.show_table_contents(table_name)
+                if cursor.rowcount > 0:
+                    QMessageBox.information(self, "Deleted", "Record deleted successfully.")
+                    # Refresh table view
+                    self.show_table_contents(table_name)
+                else:
+                    QMessageBox.warning(self, "Warning", "No matching record found to delete.")
 
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Error", f"Failed to delete record:\n{str(e)}")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Unexpected error:\n{str(e)}")
 
     # def delete_current_table(self):
     #     """Delete currently selected table with confirmation"""
