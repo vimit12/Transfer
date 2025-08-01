@@ -2725,7 +2725,7 @@ class MainWindow(QMainWindow):
 
             cursor.execute(f"SELECT * FROM {table_name}")
             rows = cursor.fetchall()
-
+            self.table_view.clear()#reset the view in every table selected
             # Configure table view with modern styling
             self.table_view.setRowCount(len(rows))
             self.table_view.setColumnCount(len(columns) + 1)
@@ -2808,8 +2808,12 @@ class MainWindow(QMainWindow):
                 }
             """)
 
-            # Set row height for better spacing
-            self.table_view.verticalHeader().setDefaultSectionSize(50)
+            # Enable word wrapping for all items
+            self.table_view.setWordWrap(True)
+
+            # Set row height to auto-adjust based on content
+            self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            self.table_view.verticalHeader().setDefaultSectionSize(40)  # Minimum row height
             self.table_view.verticalHeader().hide()  # Hide row numbers for cleaner look
 
             # Set alternating row colors
@@ -2878,7 +2882,7 @@ class MainWindow(QMainWindow):
 
             # Add clear filters button in the actions column
             clear_filters_btn = QPushButton("✖️")
-            clear_filters_btn.setFixedSize(28, 28)
+            clear_filters_btn.setFixedSize(38, 38)
             clear_filters_btn.setStyleSheet("""
                 QPushButton {
                     background-color: #ff9800;
@@ -2909,18 +2913,22 @@ class MainWindow(QMainWindow):
             self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
-            # Set all columns to resize to contents first
+            # Set all columns to have max width and word wrap
             for col in range(len(columns)):
-                header.setSectionResizeMode(col, QHeaderView.ResizeMode.ResizeToContents)
+                # Set max width to 250 (adjust as needed) with word wrap
+                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                self.table_view.setColumnWidth(col, 250)  # Set initial width
+                header.setMaximumSectionSize(350)  # Max width for content columns
 
-            # Action column fixed width (smaller now)
+            # Action column fixed width (consistent across tables)
             header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
-            self.table_view.setColumnWidth(len(columns), 80)  # Reduced width for smaller buttons
+            self.table_view.setColumnWidth(len(columns), 30)  # Fixed width for action column
 
             # Populate data with enhanced styling
             for row_idx, row in enumerate(rows):
                 for col_idx, value in enumerate(row):
                     item = QTableWidgetItem(str(value) if value is not None else "")
+                    # Set alignment: left horizontal, center vertical
                     item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
                     # Add subtle styling based on data type
@@ -2931,24 +2939,24 @@ class MainWindow(QMainWindow):
 
                     self.table_view.setItem(row_idx, col_idx, item)
 
-                # Enhanced action buttons
+                # Enhanced action buttons - smaller and consistent
                 action_widget = QWidget()
                 action_widget.setStyleSheet("background-color: transparent;")
                 action_layout = QHBoxLayout(action_widget)
-                action_layout.setContentsMargins(8, 4, 8, 4)
-                action_layout.setSpacing(6)
+                action_layout.setContentsMargins(0, 0, 0, 0)  # Reduced margins
+                action_layout.setSpacing(4)  # Reduced spacing
 
-                # Smaller colored edit button
+                # Smaller edit button
                 edit_btn = QPushButton("✏️")
-                edit_btn.setFixedSize(28, 28)
+                edit_btn.setFixedSize(24, 24)  # Smaller size
                 edit_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #4caf50;
                         color: white;
                         border: none;
-                        border-radius: 14px;
+                        border-radius: 12px;
                         font-weight: bold;
-                        font-size: 12px;
+                        font-size: 11px;
                     }
                     QPushButton:hover {
                         background-color: #45a049;
@@ -2961,17 +2969,17 @@ class MainWindow(QMainWindow):
                 edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
 
-                # Smaller colored delete button
+                # Smaller delete button
                 delete_btn = QPushButton("🗑️")
-                delete_btn.setFixedSize(28, 28)
+                delete_btn.setFixedSize(24, 24)  # Smaller size
                 delete_btn.setStyleSheet("""
                     QPushButton {
                         background-color: #f44336;
                         color: white;
                         border: none;
-                        border-radius: 14px;
+                        border-radius: 12px;
                         font-weight: bold;
-                        font-size: 12px;
+                        font-size: 11px;
                     }
                     QPushButton:hover {
                         background-color: #d32f2f;
@@ -2986,7 +2994,7 @@ class MainWindow(QMainWindow):
 
                 action_layout.addWidget(edit_btn)
                 action_layout.addWidget(delete_btn)
-                action_layout.addStretch()  # Center the buttons
+                action_layout.addStretch()
 
                 self.table_view.setCellWidget(row_idx, len(columns), action_widget)
 
