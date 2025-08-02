@@ -2919,7 +2919,7 @@ class MainWindow(QMainWindow):
                 for col in range(len(columns)):
                     # Set max width to 250 (adjust as needed) with word wrap
                     header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                    self.table_view.setColumnWidth(col, 350)  # Reduced from 250 to make room for actions
+                    self.table_view.setColumnWidth(col, 370)  # Reduced from 250 to make room for actions
                     header.setMaximumSectionSize(400)  # Max width for content columns
                 action_column_width = 80  # Width for two buttons + spacing
             else:
@@ -2930,14 +2930,11 @@ class MainWindow(QMainWindow):
                     self.table_view.setColumnWidth(col, 200)  # Reduced from 250 to make room for actions
                     header.setMaximumSectionSize(300)  # Max width for content columns
                 action_column_width = 210  # Width for two buttons + spacing
+
             header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
             self.table_view.setColumnWidth(len(columns), action_column_width)
             # Set minimum width for the action column header
             header.setMinimumSectionSize(action_column_width)
-
-            # # Action column fixed width (consistent across tables)
-            # header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
-            # self.table_view.setColumnWidth(len(columns), 30)  # Fixed width for action column
 
             # Populate data with enhanced styling
             for row_idx, row in enumerate(rows):
@@ -3212,209 +3209,168 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
-    def get_widget_text(self, widget):
-        """Helper function to get text from different widget types"""
-        if hasattr(widget, 'text'):  # QLineEdit, QLabel, etc.
-            return widget.text()
-        elif hasattr(widget, 'toPlainText'):  # QTextEdit, QPlainTextEdit
-            return widget.toPlainText()
-        elif hasattr(widget, 'currentText'):  # QComboBox
-            return widget.currentText()
-        elif hasattr(widget, 'value'):  # QSpinBox, QDoubleSpinBox
-            return str(widget.value())
-        elif hasattr(widget, 'isChecked'):  # QCheckBox
-            return str(widget.isChecked())
-        else:
-            return ""
-
     def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
-        """Save edited data to database"""
+        """Universal save function that works for all widget types and handles NULL values properly"""
         cursor = None
         try:
             cursor = self.db_connection.cursor()
 
-            # Get new values from input fields (handle both QLineEdit and QTextEdit)
-            new_values = []
-            for col in columns:
-                widget = input_fields[col]
-                new_values.append(self.get_widget_text(widget))
-
-            old_values = list(old_row_data)
-
-            # Check if any values have actually changed
-            old_values_as_strings = [str(val) if val is not None else "" for val in old_values]
-            if new_values == old_values_as_strings:
-                QMessageBox.information(self, "No Changes", "No changes were made to the record.")
-                dialog.close()
-                return
-
-            # Method 1: Use ROWID (most reliable)
-            try:
-                # Get the ROWID of the current row
-                rowid_query = f"SELECT ROWID FROM {table_name} WHERE " + " AND ".join([f'"{col}" = ?' for col in columns])
-                cursor.execute(rowid_query, old_values)
-                rowid_result = cursor.fetchone()
-
-                if rowid_result:
-                    rowid = rowid_result[0]
-                    # Update using ROWID
-                    set_clause = ", ".join([f'"{col}" = ?' for col in columns])
-                    query = f'UPDATE "{table_name}" SET {set_clause} WHERE ROWID = ?'
-                    cursor.execute(query, new_values + [rowid])
-
-                    if cursor.rowcount > 0:
-                        self.db_connection.commit()
-                        QMessageBox.information(self, "Success", "Record updated successfully.")
-                        dialog.close()
-                        self.show_table_contents(table_name)
-                    else:
-                        QMessageBox.warning(self, "Warning",
-                                            "No record was updated. The record may have been modified by another process.")
+            # Helper function to get text from any widget type
+            def get_widget_value(widget):
+                """Extract text from any Qt widget type"""
+                if hasattr(widget, 'text'):  # QLineEdit, QLabel
+                    return widget.text()
+                elif hasattr(widget, 'toPlainText'):  # QTextEdit, QPlainTextEdit
+                    return widget.toPlainText()
+                elif hasattr(widget, 'currentText'):  # QComboBox
+                    return widget.currentText()
+                elif hasattr(widget, 'value'):  # QSpinBox, QDoubleSpinBox
+                    return str(widget.value())
+                elif hasattr(widget, 'isChecked'):  # QCheckBox
+                    return str(widget.isChecked())
+                elif hasattr(widget, 'date'):  # QDateEdit
+                    return widget.date().toString()
+                elif hasattr(widget, 'time'):  # QTimeEdit
+                    return widget.time().toString()
+                elif hasattr(widget, 'dateTime'):  # QDateTimeEdit
+                    return widget.dateTime().toString()
                 else:
-                    QMessageBox.warning(self, "Warning", "Original record not found. It may have been deleted or modified.")
+                    return str(widget)
 
-            except sqlite3.Error as rowid_error:
-                # Method 2: Fallback - Use primary key if available
-                try:
-                    # Try to get primary key information
-                    cursor.execute(f'PRAGMA table_info("{table_name}")')
-                    table_info = cursor.fetchall()
-                    primary_keys = [col[1] for col in table_info if col[5] == 1]  # col[5] is pk flag
+            # Helper function to build WHERE clause with proper NULL handling
+            def build_where_clause(columns, values):
+                """Build WHERE clause that properly handles NULL values"""
+                conditions = []
+                params = []
 
-                    if primary_keys:
-                        # Use primary key columns for WHERE clause
-                        pk_values = []
-                        for pk_col in primary_keys:
-                            if pk_col in columns:
-                                pk_index = columns.index(pk_col)
-                                pk_values.append(old_values[pk_index])
-                            else:
-                                raise ValueError(f"Primary key column '{pk_col}' not found in columns")
-
-                        set_clause = ", ".join([f'"{col}" = ?' for col in columns])
-                        where_clause = " AND ".join([f'"{col}" = ?' for col in primary_keys])
-                        query = f'UPDATE "{table_name}" SET {set_clause} WHERE {where_clause}'
-
-                        cursor.execute(query, new_values + pk_values)
-
-                        if cursor.rowcount > 0:
-                            self.db_connection.commit()
-                            QMessageBox.information(self, "Success", "Record updated successfully.")
-                            dialog.close()
-                            self.show_table_contents(table_name)
-                        else:
-                            QMessageBox.warning(self, "Warning", "No record was updated. The record may have been modified.")
+                for col, val in zip(columns, values):
+                    if val is None:
+                        conditions.append(f'"{col}" IS NULL')
                     else:
-                        # Method 3: Last resort - use all original values but with transaction
-                        self.db_connection.execute("BEGIN TRANSACTION")
+                        conditions.append(f'"{col}" = ?')
+                        params.append(val)
 
-                        # First, verify the record still exists unchanged
-                        check_query = f'SELECT COUNT(*) FROM "{table_name}" WHERE ' + " AND ".join(
-                            [f'"{col}" = ?' for col in columns])
-                        cursor.execute(check_query, old_values)
+                return " AND ".join(conditions), params
 
-                        if cursor.fetchone()[0] == 1:  # Record exists and is unique
-                            set_clause = ", ".join([f'"{col}" = ?' for col in columns])
-                            where_clause = " AND ".join([f'"{col}" = ?' for col in columns])
-                            query = f'UPDATE "{table_name}" SET {set_clause} WHERE {where_clause}'
+            # Helper function to normalize values for comparison
+            def normalize_value(value):
+                """Normalize values for consistent comparison"""
+                if value is None or value == "":
+                    return None
+                return str(value).strip()
 
-                            cursor.execute(query, new_values + old_values)
-
-                            if cursor.rowcount > 0:
-                                self.db_connection.commit()
-                                QMessageBox.information(self, "Success", "Record updated successfully.")
-                                dialog.close()
-                                self.show_table_contents(table_name)
-                            else:
-                                self.db_connection.rollback()
-                                QMessageBox.warning(self, "Warning", "Failed to update record.")
-                        else:
-                            self.db_connection.rollback()
-                            QMessageBox.warning(self, "Warning", "Record has been modified or deleted by another process.")
-
-                except (sqlite3.Error, ValueError) as fallback_error:
-                    self.db_connection.rollback()
-                    QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(fallback_error)}")
-
-        except sqlite3.Error as e:
-            if hasattr(self, 'db_connection'):
-                try:
-                    self.db_connection.rollback()
-                except:
-                    pass
-            QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(e)}")
-        except Exception as e:
-            QMessageBox.critical(self, "Error", f"Unexpected error occurred:\n{str(e)}")
-        finally:
-            if cursor:
-                try:
-                    cursor.close()
-                except:
-                    pass
-
-    def save_edited_row_simple(self, dialog, table_name, columns, old_row_data, input_fields):
-        """Save edited data to database - Simple version"""
-        cursor = None
-        try:
-            cursor = self.db_connection.cursor()
-
-            # Get new values from input fields (handle both QLineEdit and QTextEdit)
+            # Get new values from input fields
             new_values = []
             for col in columns:
                 widget = input_fields[col]
-                new_values.append(self.get_widget_text(widget))
+                raw_value = get_widget_value(widget)
+                normalized_value = normalize_value(raw_value)
+                new_values.append(normalized_value)
 
-            old_values = list(old_row_data)
+            # Normalize old values for comparison
+            old_values = [normalize_value(val) for val in old_row_data]
 
             # Check if any values have actually changed
-            old_values_as_strings = [str(val) if val is not None else "" for val in old_values]
-            if new_values == old_values_as_strings:
+            if new_values == old_values:
                 QMessageBox.information(self, "No Changes", "No changes were made to the record.")
                 dialog.close()
                 return
 
-            # Use ROWID for reliable updates
-            # First get the ROWID
-            rowid_query = f'SELECT ROWID FROM "{table_name}" WHERE ' + " AND ".join(
-                [f'"{col}" = ?' for col in columns]) + " LIMIT 1"
-            cursor.execute(rowid_query, old_values)
-            result = cursor.fetchone()
+            # Build WHERE clause that handles NULL values properly
+            where_clause, where_params = build_where_clause(columns, old_row_data)
 
-            if not result:
-                QMessageBox.warning(self, "Error", "Original record not found. It may have been deleted or modified.")
+            # Get the ROWID of the current row
+            rowid_query = f'SELECT ROWID FROM "{table_name}" WHERE {where_clause} LIMIT 1'
+            cursor.execute(rowid_query, where_params)
+            rowid_result = cursor.fetchone()
+
+            if not rowid_result:
+                # If ROWID method fails, try to find the record by checking if it exists
+                check_query = f'SELECT COUNT(*) FROM "{table_name}" WHERE {where_clause}'
+                cursor.execute(check_query, where_params)
+                count = cursor.fetchone()[0]
+
+                if count == 0:
+                    QMessageBox.warning(self, "Error",
+                                        "Original record not found. It may have been deleted or modified by another process.")
+                elif count > 1:
+                    QMessageBox.warning(self, "Error", "Multiple matching records found. Cannot safely update the record.")
+                else:
+                    QMessageBox.warning(self, "Error", "Unable to locate the record for updating.")
                 return
 
-            rowid = result[0]
+            rowid = rowid_result[0]
 
-            # Update using ROWID
+            # Prepare update query
             set_clause = ", ".join([f'"{col}" = ?' for col in columns])
             update_query = f'UPDATE "{table_name}" SET {set_clause} WHERE ROWID = ?'
 
+            # Execute update
             cursor.execute(update_query, new_values + [rowid])
 
             if cursor.rowcount > 0:
                 self.db_connection.commit()
-                QMessageBox.information(self, "Success", "Record updated successfully.")
+                QMessageBox.information(self, "Success", "Record updated successfully!")
                 dialog.close()
-                self.show_table_contents(table_name)
+
+                # Refresh the table view
+                if hasattr(self, 'show_table_contents'):
+                    self.show_table_contents(table_name)
             else:
-                QMessageBox.warning(self, "Warning", "No record was updated.")
+                QMessageBox.warning(self, "Warning",
+                                    "No record was updated. The record may have been modified by another process.")
 
         except sqlite3.Error as e:
+            # Handle database errors
             try:
-                self.db_connection.rollback()
+                if hasattr(self, 'db_connection') and self.db_connection:
+                    self.db_connection.rollback()
             except:
                 pass
-            QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(e)}")
+
+            error_msg = f"Database error occurred while updating the record:\n\n{str(e)}"
+            QMessageBox.critical(self, "Database Error", error_msg)
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Unexpected error occurred:\n{str(e)}")
+            # Handle any other unexpected errors
+            try:
+                if hasattr(self, 'db_connection') and self.db_connection:
+                    self.db_connection.rollback()
+            except:
+                pass
+
+            error_msg = f"An unexpected error occurred:\n\n{str(e)}"
+            QMessageBox.critical(self, "Error", error_msg)
+
         finally:
+            # Always close cursor
             if cursor:
                 try:
+                    self.show_table_contents(table_name)
                     cursor.close()
                 except:
                     pass
+    # Test the query manually to debug:
+    def debug_rowid_query(self, table_name, columns, old_values):
+        """Debug function to test the ROWID query"""
+        cursor = self.db_connection.cursor()
 
+        # Build WHERE clause that handles NULL values properly
+        where_clause, where_params = self.build_where_clause_with_nulls(columns, old_values)
+
+        rowid_query = f'SELECT ROWID, * FROM "{table_name}" WHERE {where_clause}'
+        print(f"Query: {rowid_query}")
+        print(f"Parameters: {where_params}")
+
+        cursor.execute(rowid_query, where_params)
+        results = cursor.fetchall()
+
+        print(f"Found {len(results)} matching records:")
+        for result in results:
+            print(f"ROWID: {result[0]}, Data: {result[1:]}")
+
+        cursor.close()
+        return results
     def delete_row(self, table_name, row_data):
         """Delete a row from the database after confirmation"""
         confirm = QMessageBox.question(self, "Confirm Delete", "Are you sure you want to delete this record?",
