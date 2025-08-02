@@ -2814,7 +2814,7 @@ class MainWindow(QMainWindow):
             # Set row height to auto-adjust based on content
             self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
             self.table_view.verticalHeader().setDefaultSectionSize(40)  # Minimum row height
-            self.table_view.verticalHeader().hide()  # Hide row numbers for cleaner look
+            # self.table_view.verticalHeader().hide()  # Hide row numbers for cleaner look
 
             # Set alternating row colors
             self.table_view.setAlternatingRowColors(True)
@@ -2913,16 +2913,31 @@ class MainWindow(QMainWindow):
             self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
-            # Set all columns to have max width and word wrap
-            for col in range(len(columns)):
-                # Set max width to 250 (adjust as needed) with word wrap
-                header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                self.table_view.setColumnWidth(col, 250)  # Set initial width
-                header.setMaximumSectionSize(350)  # Max width for content columns
-
-            # Action column fixed width (consistent across tables)
+            # Action column with proper width calculation
+            if len(columns) <=3:
+                # Set all columns to have max width and word wrap
+                for col in range(len(columns)):
+                    # Set max width to 250 (adjust as needed) with word wrap
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                    self.table_view.setColumnWidth(col, 350)  # Reduced from 250 to make room for actions
+                    header.setMaximumSectionSize(400)  # Max width for content columns
+                action_column_width = 80  # Width for two buttons + spacing
+            else:
+                # Set all columns to have max width and word wrap
+                for col in range(len(columns)):
+                    # Set max width to 250 (adjust as needed) with word wrap
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                    self.table_view.setColumnWidth(col, 200)  # Reduced from 250 to make room for actions
+                    header.setMaximumSectionSize(300)  # Max width for content columns
+                action_column_width = 210  # Width for two buttons + spacing
             header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
-            self.table_view.setColumnWidth(len(columns), 30)  # Fixed width for action column
+            self.table_view.setColumnWidth(len(columns), action_column_width)
+            # Set minimum width for the action column header
+            header.setMinimumSectionSize(action_column_width)
+
+            # # Action column fixed width (consistent across tables)
+            # header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
+            # self.table_view.setColumnWidth(len(columns), 30)  # Fixed width for action column
 
             # Populate data with enhanced styling
             for row_idx, row in enumerate(rows):
@@ -2939,53 +2954,55 @@ class MainWindow(QMainWindow):
 
                     self.table_view.setItem(row_idx, col_idx, item)
 
-                # Enhanced action buttons - smaller and consistent
+                # Enhanced action buttons - properly sized
                 action_widget = QWidget()
                 action_widget.setStyleSheet("background-color: transparent;")
                 action_layout = QHBoxLayout(action_widget)
-                action_layout.setContentsMargins(0, 0, 0, 0)  # Reduced margins
-                action_layout.setSpacing(4)  # Reduced spacing
+                action_layout.setContentsMargins(2, 2, 2, 2)  # Small margins
+                action_layout.setSpacing(6)  # Space between buttons
 
-                # Smaller edit button
-                edit_btn = QPushButton("✏️")
-                edit_btn.setFixedSize(24, 24)  # Smaller size
+                # Better sized edit button
+                edit_btn = QPushButton("🖋️Edit")
+                edit_btn.setFixedSize(28, 28)  # Increased from 24x24
                 edit_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #4caf50;
+                        background-color: #FFB300; /* Amber */
                         color: white;
                         border: none;
-                        border-radius: 12px;
+                        border-radius: 14px;
                         font-weight: bold;
-                        font-size: 11px;
+                        font-size: 12px;
+                        padding: 6px 12px;
                     }
                     QPushButton:hover {
-                        background-color: #45a049;
+                        background-color: #FFA000; /* Darker Amber */
                     }
                     QPushButton:pressed {
-                        background-color: #3d8b40;
+                        background-color: #FF8F00; /* Even deeper Amber */
                     }
                 """)
                 edit_btn.setToolTip("Edit Record")
                 edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
                 edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
 
-                # Smaller delete button
-                delete_btn = QPushButton("🗑️")
-                delete_btn.setFixedSize(24, 24)  # Smaller size
+                # Better sized delete button
+                delete_btn = QPushButton("🗑️Delete")
+                delete_btn.setFixedSize(28, 28)  # Increased from 24x24
                 delete_btn.setStyleSheet("""
                     QPushButton {
-                        background-color: #f44336;
+                        background-color: #D32F2F;
                         color: white;
                         border: none;
-                        border-radius: 12px;
+                        border-radius: 14px;
                         font-weight: bold;
-                        font-size: 11px;
+                        font-size: 12px;
+                        padding: 6px 12px;
                     }
                     QPushButton:hover {
-                        background-color: #d32f2f;
+                        background-color: #E53935;
                     }
                     QPushButton:pressed {
-                        background-color: #c62828;
+                        background-color: #C62828;
                     }
                 """)
                 delete_btn.setToolTip("Delete Record")
@@ -2994,7 +3011,10 @@ class MainWindow(QMainWindow):
 
                 action_layout.addWidget(edit_btn)
                 action_layout.addWidget(delete_btn)
-                action_layout.addStretch()
+
+                # action_layout.addWidget(edit_btn)
+                # action_layout.addWidget(delete_btn)
+                # action_layout.addStretch()
 
                 self.table_view.setCellWidget(row_idx, len(columns), action_widget)
 
@@ -3191,30 +3211,209 @@ class MainWindow(QMainWindow):
         """)
 
         dialog.exec()
+
+    def get_widget_text(self, widget):
+        """Helper function to get text from different widget types"""
+        if hasattr(widget, 'text'):  # QLineEdit, QLabel, etc.
+            return widget.text()
+        elif hasattr(widget, 'toPlainText'):  # QTextEdit, QPlainTextEdit
+            return widget.toPlainText()
+        elif hasattr(widget, 'currentText'):  # QComboBox
+            return widget.currentText()
+        elif hasattr(widget, 'value'):  # QSpinBox, QDoubleSpinBox
+            return str(widget.value())
+        elif hasattr(widget, 'isChecked'):  # QCheckBox
+            return str(widget.isChecked())
+        else:
+            return ""
+
     def save_edited_row(self, dialog, table_name, columns, old_row_data, input_fields):
         """Save edited data to database"""
+        cursor = None
         try:
             cursor = self.db_connection.cursor()
 
-            # Prepare update query
-            set_clause = ", ".join([f"{col} = ?" for col in columns])
-            where_clause = " AND ".join([f"{col} = ?" for col in columns])
-            query = f"UPDATE {table_name} SET {set_clause} WHERE {where_clause}"
+            # Get new values from input fields (handle both QLineEdit and QTextEdit)
+            new_values = []
+            for col in columns:
+                widget = input_fields[col]
+                new_values.append(self.get_widget_text(widget))
 
-            # Get new values and execute update
-            new_values = [input_fields[col].text() for col in columns]
             old_values = list(old_row_data)
-            cursor.execute(query, new_values + old_values)
-            self.db_connection.commit()
 
-            QMessageBox.information(self, "Success", "Record updated successfully.")
-            dialog.close()
+            # Check if any values have actually changed
+            old_values_as_strings = [str(val) if val is not None else "" for val in old_values]
+            if new_values == old_values_as_strings:
+                QMessageBox.information(self, "No Changes", "No changes were made to the record.")
+                dialog.close()
+                return
 
-            # Refresh table view
-            self.show_table_contents(table_name)
+            # Method 1: Use ROWID (most reliable)
+            try:
+                # Get the ROWID of the current row
+                rowid_query = f"SELECT ROWID FROM {table_name} WHERE " + " AND ".join([f'"{col}" = ?' for col in columns])
+                cursor.execute(rowid_query, old_values)
+                rowid_result = cursor.fetchone()
+
+                if rowid_result:
+                    rowid = rowid_result[0]
+                    # Update using ROWID
+                    set_clause = ", ".join([f'"{col}" = ?' for col in columns])
+                    query = f'UPDATE "{table_name}" SET {set_clause} WHERE ROWID = ?'
+                    cursor.execute(query, new_values + [rowid])
+
+                    if cursor.rowcount > 0:
+                        self.db_connection.commit()
+                        QMessageBox.information(self, "Success", "Record updated successfully.")
+                        dialog.close()
+                        self.show_table_contents(table_name)
+                    else:
+                        QMessageBox.warning(self, "Warning",
+                                            "No record was updated. The record may have been modified by another process.")
+                else:
+                    QMessageBox.warning(self, "Warning", "Original record not found. It may have been deleted or modified.")
+
+            except sqlite3.Error as rowid_error:
+                # Method 2: Fallback - Use primary key if available
+                try:
+                    # Try to get primary key information
+                    cursor.execute(f'PRAGMA table_info("{table_name}")')
+                    table_info = cursor.fetchall()
+                    primary_keys = [col[1] for col in table_info if col[5] == 1]  # col[5] is pk flag
+
+                    if primary_keys:
+                        # Use primary key columns for WHERE clause
+                        pk_values = []
+                        for pk_col in primary_keys:
+                            if pk_col in columns:
+                                pk_index = columns.index(pk_col)
+                                pk_values.append(old_values[pk_index])
+                            else:
+                                raise ValueError(f"Primary key column '{pk_col}' not found in columns")
+
+                        set_clause = ", ".join([f'"{col}" = ?' for col in columns])
+                        where_clause = " AND ".join([f'"{col}" = ?' for col in primary_keys])
+                        query = f'UPDATE "{table_name}" SET {set_clause} WHERE {where_clause}'
+
+                        cursor.execute(query, new_values + pk_values)
+
+                        if cursor.rowcount > 0:
+                            self.db_connection.commit()
+                            QMessageBox.information(self, "Success", "Record updated successfully.")
+                            dialog.close()
+                            self.show_table_contents(table_name)
+                        else:
+                            QMessageBox.warning(self, "Warning", "No record was updated. The record may have been modified.")
+                    else:
+                        # Method 3: Last resort - use all original values but with transaction
+                        self.db_connection.execute("BEGIN TRANSACTION")
+
+                        # First, verify the record still exists unchanged
+                        check_query = f'SELECT COUNT(*) FROM "{table_name}" WHERE ' + " AND ".join(
+                            [f'"{col}" = ?' for col in columns])
+                        cursor.execute(check_query, old_values)
+
+                        if cursor.fetchone()[0] == 1:  # Record exists and is unique
+                            set_clause = ", ".join([f'"{col}" = ?' for col in columns])
+                            where_clause = " AND ".join([f'"{col}" = ?' for col in columns])
+                            query = f'UPDATE "{table_name}" SET {set_clause} WHERE {where_clause}'
+
+                            cursor.execute(query, new_values + old_values)
+
+                            if cursor.rowcount > 0:
+                                self.db_connection.commit()
+                                QMessageBox.information(self, "Success", "Record updated successfully.")
+                                dialog.close()
+                                self.show_table_contents(table_name)
+                            else:
+                                self.db_connection.rollback()
+                                QMessageBox.warning(self, "Warning", "Failed to update record.")
+                        else:
+                            self.db_connection.rollback()
+                            QMessageBox.warning(self, "Warning", "Record has been modified or deleted by another process.")
+
+                except (sqlite3.Error, ValueError) as fallback_error:
+                    self.db_connection.rollback()
+                    QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(fallback_error)}")
 
         except sqlite3.Error as e:
+            if hasattr(self, 'db_connection'):
+                try:
+                    self.db_connection.rollback()
+                except:
+                    pass
             QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Unexpected error occurred:\n{str(e)}")
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
+
+    def save_edited_row_simple(self, dialog, table_name, columns, old_row_data, input_fields):
+        """Save edited data to database - Simple version"""
+        cursor = None
+        try:
+            cursor = self.db_connection.cursor()
+
+            # Get new values from input fields (handle both QLineEdit and QTextEdit)
+            new_values = []
+            for col in columns:
+                widget = input_fields[col]
+                new_values.append(self.get_widget_text(widget))
+
+            old_values = list(old_row_data)
+
+            # Check if any values have actually changed
+            old_values_as_strings = [str(val) if val is not None else "" for val in old_values]
+            if new_values == old_values_as_strings:
+                QMessageBox.information(self, "No Changes", "No changes were made to the record.")
+                dialog.close()
+                return
+
+            # Use ROWID for reliable updates
+            # First get the ROWID
+            rowid_query = f'SELECT ROWID FROM "{table_name}" WHERE ' + " AND ".join(
+                [f'"{col}" = ?' for col in columns]) + " LIMIT 1"
+            cursor.execute(rowid_query, old_values)
+            result = cursor.fetchone()
+
+            if not result:
+                QMessageBox.warning(self, "Error", "Original record not found. It may have been deleted or modified.")
+                return
+
+            rowid = result[0]
+
+            # Update using ROWID
+            set_clause = ", ".join([f'"{col}" = ?' for col in columns])
+            update_query = f'UPDATE "{table_name}" SET {set_clause} WHERE ROWID = ?'
+
+            cursor.execute(update_query, new_values + [rowid])
+
+            if cursor.rowcount > 0:
+                self.db_connection.commit()
+                QMessageBox.information(self, "Success", "Record updated successfully.")
+                dialog.close()
+                self.show_table_contents(table_name)
+            else:
+                QMessageBox.warning(self, "Warning", "No record was updated.")
+
+        except sqlite3.Error as e:
+            try:
+                self.db_connection.rollback()
+            except:
+                pass
+            QMessageBox.critical(self, "Error", f"Failed to update record:\n{str(e)}")
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Unexpected error occurred:\n{str(e)}")
+        finally:
+            if cursor:
+                try:
+                    cursor.close()
+                except:
+                    pass
 
     def delete_row(self, table_name, row_data):
         """Delete a row from the database after confirmation"""
