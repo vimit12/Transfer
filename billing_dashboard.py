@@ -1,21 +1,18 @@
 import sys
 from collections import Counter
-from datetime import datetime
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout,
-    QPushButton, QLabel, QVBoxLayout, QHBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
-    QFrame, QLineEdit, QComboBox, QFormLayout, QListWidget, QHeaderView, QDialog, QProgressBar, QAbstractScrollArea,
-    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QToolBar, QGroupBox, QPlainTextEdit, QScrollArea, QAbstractItemView)
-from PyQt6.QtGui import QFont, QAction, QActionGroup, QPixmap, QIcon, QCursor, QColor
-from PyQt6 import QtCore, QtGui, QtWidgets
+    QPushButton, QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
+    QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView, QDialog, QProgressBar,
+    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox, QPlainTextEdit, QScrollArea, QAbstractItemView)
+from PyQt6.QtGui import QFont, QIcon, QColor
+from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
 import sqlite3
 import json
-from openpyxl import load_workbook, Workbook
+from openpyxl import Workbook
 import pandas as pd
 from pandas._libs.tslibs.timestamps import Timestamp
-from openpyxl.utils import quote_sheetname
 from openpyxl.utils import get_column_letter
-from dateutil import parser
 from datetime import datetime
 import calendar
 import itertools
@@ -24,7 +21,6 @@ import re
 from dateutil.parser import parse
 from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.worksheet.merge import MergeCell, MergeCells
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
 
@@ -1002,8 +998,15 @@ class MainWindow(QMainWindow):
         self.card2.setStyleSheet(self.get_card_style())
         self.card2.clicked.connect(self.open_resource_popup)
 
+        # Card 3
+        self.card3 = QPushButton("🗂️ Upload Custom File")
+        self.card3.setFixedSize(250, 120)
+        self.card3.setStyleSheet(self.get_card_style())
+        self.card3.clicked.connect(self.handle_custom_file_upload)
+
         button_layout.addWidget(self.card1)
         button_layout.addWidget(self.card2)
+        button_layout.addWidget(self.card3)
 
         layout.addLayout(button_layout)
         layout.addStretch()
@@ -1044,6 +1047,142 @@ class MainWindow(QMainWindow):
 
         dialog.exec()
 
+    def handle_custom_file_upload(self):
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Excel or CSV File", "",
+                                                   "Excel Files (*.xlsx *.xls);;CSV Files (*.csv)")
+        if file_path:
+            if file_path.endswith(".csv"):
+                df = pd.read_csv(file_path)
+            else:
+                df = pd.read_excel(file_path)
+            headers = df.columns.tolist()
+            self.show_table_creation_form(headers, df)
+
+    def show_table_creation_form(self, headers, df):
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Define Table Structure")
+        dialog.resize(700, 500)  # Wider dialog
+
+        main_layout = QVBoxLayout(dialog)
+
+        # Table Name input
+        table_name_input = QLineEdit()
+        table_name_input.setPlaceholderText("Enter Table Name")
+
+        main_layout.addWidget(QLabel("Table Name:"))
+        main_layout.addWidget(table_name_input)
+
+        # Scrollable area
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+
+        scroll_widget = QWidget()
+        grid_layout = QGridLayout(scroll_widget)
+        grid_layout.setSpacing(15)
+
+        dropdowns = {}
+        row = 0
+
+        for header in headers:
+            label = QLabel(str(header))
+            combo = QComboBox()
+            combo.addItems(["INTEGER", "TEXT", "REAL", "DATE"])
+            dropdowns[header] = combo
+
+            col = row // ((len(headers) + 1) // 2)  # auto split into 2 columns
+            grid_layout.addWidget(label, row % ((len(headers) + 1) // 2), col * 2)
+            grid_layout.addWidget(combo, row % ((len(headers) + 1) // 2), col * 2 + 1)
+
+            row += 1
+
+        scroll_area.setWidget(scroll_widget)
+        main_layout.addWidget(scroll_area)
+
+        # Submit button
+        submit_btn = QPushButton("Create Table")
+        submit_btn.setEnabled(False)
+        main_layout.addWidget(submit_btn)
+
+        # Enable submit when all fields are filled
+        def check_form_complete():
+            if not table_name_input.text().strip():
+                submit_btn.setEnabled(False)
+                return
+            for cb in dropdowns.values():
+                if cb.currentText() == "":
+                    submit_btn.setEnabled(False)
+                    return
+            submit_btn.setEnabled(True)
+
+        table_name_input.textChanged.connect(check_form_complete)
+        for cb in dropdowns.values():
+            cb.currentIndexChanged.connect(check_form_complete)
+
+        def on_submit():
+            table_name = table_name_input.text().strip()
+            column_defs = {col: dropdowns[col].currentText() for col in headers}
+            self.create_dynamic_table(table_name, column_defs, df)
+            dialog.accept()
+
+        submit_btn.clicked.connect(on_submit)
+        dialog.exec()
+
+    def sanitize_column_name(self, col):
+        if not isinstance(col, str):
+            col = str(col)
+        col = re.sub(r'\W+', '_', col)
+        if col and col[0].isdigit():
+            col = f'col_{col}'
+        return col.strip('_').lower()
+
+    def create_dynamic_table(self, table_name, column_defs, df):
+        cursor = None
+        try:
+            cursor = self.db_connection.cursor()
+
+            # Step 1: Sanitize column names and build mapping
+            sanitized_map = {col: self.sanitize_column_name(col) for col in column_defs.keys()}
+
+            # Step 2: Create table SQL
+            column_sql_parts = [f'"{sanitized_map[col]}" {column_defs[col]}' for col in column_defs]
+            columns_sql = ", ".join(column_sql_parts)
+            create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({columns_sql})'
+            cursor.execute(create_table_sql)
+
+            # Step 3: Insert data
+            placeholders = ", ".join(["?"] * len(column_defs))
+            sanitized_cols = [sanitized_map[col] for col in column_defs]
+            insert_sql = f'INSERT INTO "{table_name}" ({", ".join(sanitized_cols)}) VALUES ({placeholders})'
+
+            for _, row in df.iterrows():
+                values = [row[col].isoformat() if column_defs[col] == "DATE" and pd.notnull(row[col]) else row[col] for col
+                    in column_defs]
+                cursor.execute(insert_sql, values)
+
+            # Step 4: Optional metadata logging
+            metadata_sql = """
+                CREATE TABLE IF NOT EXISTS imported_files_metadata (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    table_name TEXT,
+                    columns TEXT,
+                    imported_at TEXT
+                )
+            """
+            cursor.execute(metadata_sql)
+            cursor.execute("INSERT INTO imported_files_metadata (table_name, columns, imported_at) VALUES (?, ?, ?)",
+                (table_name, json.dumps(sanitized_map), datetime.now().isoformat()))
+
+            self.db_connection.commit()
+
+        except sqlite3.Error as e:
+            print(f"Error creating table or inserting data: {str(e)}")
+            if self.db_connection:
+                self.db_connection.rollback()
+
+        finally:
+            if cursor:
+                cursor.close()
     def add_data_resource_tab(self, df):
         required_columns = {"Full Name", "521 ID", "Point of Contact", "Team", "Start Date", "End Date"}
         if not required_columns.issubset(df.columns):
@@ -2689,8 +2828,15 @@ class MainWindow(QMainWindow):
         self.export_btn = QPushButton("📤 Export Records")
         self.export_btn.setFixedHeight(40)
         self.export_btn.clicked.connect(self.export_record)
-        self.export_btn.setEnabled(False)
-        db_control_layout.addWidget(self.export_btn, 1)
+        self.export_btn.setEnabled(True)
+        db_control_layout.addWidget(self.export_btn)
+
+        # Delete Table button
+        self.delete_table_btn = QPushButton("🗑️ Delete Table")
+        self.delete_table_btn.setFixedHeight(40)
+        self.delete_table_btn.clicked.connect(self.delete_current_table)
+        self.delete_table_btn.setEnabled(True)
+        db_control_layout.addWidget(self.delete_table_btn)
 
         layout.addLayout(db_control_layout)
 
@@ -2714,6 +2860,7 @@ class MainWindow(QMainWindow):
         return page
 
     def show_table_contents(self, table_name):
+        self.current_table = table_name
         """Display contents of selected table from dropdown with enhanced UI"""
         if not table_name:
             return
@@ -2813,7 +2960,7 @@ class MainWindow(QMainWindow):
 
             # Set row height to auto-adjust based on content
             self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-            self.table_view.verticalHeader().setDefaultSectionSize(40)  # Minimum row height
+            self.table_view.verticalHeader().setDefaultSectionSize(80)  # Minimum row height
             # self.table_view.verticalHeader().hide()  # Hide row numbers for cleaner look
 
             # Set alternating row colors
@@ -3419,32 +3566,37 @@ class MainWindow(QMainWindow):
             except Exception as e:
                 QMessageBox.critical(self, "Error", f"Unexpected error:\n{str(e)}")
 
-    # def delete_current_table(self):
-    #     """Delete currently selected table with confirmation"""
-    #     if not self.current_table:
-    #         return
-    #
-    #     confirm = QMessageBox.question(self, "Confirm Delete",
-    #         f"Are you sure you want to delete table '{self.current_table}'?",
-    #         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-    #
-    #     if confirm == QMessageBox.StandardButton.Yes:
-    #         try:
-    #             cursor = self.db_connection.cursor()
-    #             cursor.execute(f"DROP TABLE {self.current_table}")
-    #             self.db_connection.commit()
-    #
-    #             # Refresh UI
-    #             self.initialize_database()
-    #             self.table_view.clear()
-    #             self.current_table = None
-    #             self.delete_btn.setEnabled(False)
-    #
-    #         except sqlite3.Error as e:
-    #             QMessageBox.critical(self, "Database Error", f"Failed to delete table:\n{str(e)}")
-    #         finally:
-    #             if cursor:
-    #                 cursor.close()
+    def delete_current_table(self):
+        """Delete currently selected table with user confirmation"""
+        if not self.current_table:
+            QMessageBox.warning(self, "No Table Selected", "Please select a table to delete.")
+            return
+
+        confirm = QMessageBox.question(self, "Confirm Delete",
+            f"Are you sure you want to permanently delete the table '{self.current_table}'?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        if confirm == QMessageBox.StandardButton.Yes:
+            try:
+                cursor = self.db_connection.cursor()
+                cursor.execute(f"DROP TABLE IF EXISTS '{self.current_table}'")
+                self.db_connection.commit()
+
+                QMessageBox.information(self, "Table Deleted", f"Table '{self.current_table}' was deleted successfully.")
+
+                # Refresh UI
+                self.initialize_database()  # Refresh dropdown/list
+                self.table_view.clear()  # Clear the current view
+                self.current_table = None  # Reset current table
+                self.delete_table_btn.setEnabled(True)
+                self.export_btn.setEnabled(True)
+
+            except sqlite3.Error as e:
+                QMessageBox.critical(self, "Database Error", f"Failed to delete table:\n{str(e)}")
+
+            finally:
+                if cursor:
+                    cursor.close()
 
     def closeEvent(self, event):
         """Close database connection when window closes"""
