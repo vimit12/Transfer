@@ -1,9 +1,10 @@
 import sys
 from collections import Counter
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout,
-    QPushButton, QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
-    QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView, QDialog, QProgressBar,
-    QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox, QPlainTextEdit, QScrollArea, QAbstractItemView)
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout, QPushButton,
+                             QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
+                             QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView, QDialog, QProgressBar, QMessageBox,
+                             QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox, QPlainTextEdit, QScrollArea,
+                             QAbstractItemView)
 from PyQt6.QtGui import QFont, QIcon, QColor
 from PyQt6 import QtCore
 from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
@@ -23,7 +24,6 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
-
 
 # ======================
 # THEME DEFINITIONS
@@ -296,7 +296,6 @@ QPushButton:hover {
 }
 """
 
-
 # =======================
 #  GENERIC FUNCTION
 #========================
@@ -312,10 +311,12 @@ def clean_date(value):
         return value.strftime("%d-%m-%Y")  # Convert Timestamp to 'DD-MM-YYYY' format
     return value  # Return as is if it's already a string
 
+
 def clean_string(s):
     # Remove text inside brackets (e.g., "[C]", "[c]", "[text]"), commas, and hyphens
     cleaned = re.sub(r"\[.*?\]|[, -]", " ", s)
     return cleaned.lower().strip()
+
 
 def coverage_percentage(str1, str2):
     words1 = set(clean_string(str1).split())
@@ -323,6 +324,7 @@ def coverage_percentage(str1, str2):
     common_words = words1 & words2
     coverage = (len(common_words) / max(len(words1), len(words2))) * 100 if max(len(words1), len(words2)) > 0 else 0
     return coverage
+
 
 def read_file(file_path):
     try:
@@ -345,6 +347,7 @@ def read_file(file_path):
     # Return None if there is an error
     return None
 
+
 def sort_list_of_dicts(data):
     # Separate the dict with 'Name' equal to 'Total'
     total_dict = [d for d in data if d.get('Name') == 'Total']
@@ -357,6 +360,7 @@ def sort_list_of_dicts(data):
         sorted_data.extend(total_dict)
 
     return sorted_data
+
 
 def get_month_details(month_name, year):
     # Get the month number from the month name
@@ -390,6 +394,7 @@ def get_month_details(month_name, year):
 
     return month_details, month_number
 
+
 def date_calculation(date):
     # Check if the date is already a datetime object
     if isinstance(date, datetime):
@@ -400,6 +405,7 @@ def date_calculation(date):
 
     # Extract the day, month, and year
     return date_obj.day, date_obj.month, date_obj.year
+
 
 def get_details_for_name(name, name_mapping):
     """
@@ -412,6 +418,7 @@ def get_details_for_name(name, name_mapping):
             return name_mapping[key]
     # If no exact 100% match is found, return (None, None)
     return None
+
 
 def generate_excel(month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list, progress_bar):
     global TOTAL_WORKING_DAY
@@ -592,14 +599,14 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             ID_521 = details[0] if details else "xxxxxxx"
             if mismatch_date:
                 non_complaince_user.append(
-                    {"Name": new_data.get("Rsname"), "521_ID": details[0], "Year": year, "Month": month, "Listed Month Holiday": month_day_holiday_list,
-                        "Attendance Marked on Holiday": mismatch_date, })
+                    {"Name": new_data.get("Rsname"), "521_ID": details[0], "Year": year, "Month": month,
+                     "Listed Month Holiday": month_day_holiday_list, "Attendance Marked on Holiday": mismatch_date, })
             data = {"Vendor Organization": ["Resource Name", "Month", "Date"],
-                "Hitachi Digital Service": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
-                "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
-                f"{point_of_contact}": [f"{ID_521}", total_working_days, "Remarks", ],
-                "Adjustments from Last Month": ["", "", ""], "0": ["", "", ""], "": ["", "", ""],
-                "Week Off": ["Personal/Sick Leave", "", ""], }
+                    "Hitachi Digital Service": [f"{new_data.get('Rsname')}", f"{month_name}", "Day", ],
+                    "Point of Contact": ["5-2-1", "Working Days", "Working Status"],
+                    f"{point_of_contact}": [f"{ID_521}", total_working_days, "Remarks", ],
+                    "Adjustments from Last Month": ["", "", ""], "0": ["", "", ""], "": ["", "", ""],
+                    "Week Off": ["Personal/Sick Leave", "", ""], }
             df = pd.DataFrame(data)
 
             # Create a new sheet or get the existing one
@@ -622,14 +629,13 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             # print(df)
             df_sheets.update({sheet_name: df})
             user_data.append(
-                {"Name": sheet_name, #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
-                    "Billable Time (Hours)": (total_working_days - leave_taken) * 8,
-                    #    "Weekends": weekends, "Public Holidays": public_holiday,
-                    "Total Number of Billable Days": total_working_days - leave_taken,
-                    "Service Credit Pool Days": leave_taken, })
-            user_leave_record.append({
-                "name": sheet_name, "id_521": details[0], "year": year, "month": month, "leave_days": leave_dates
-            })
+                {"Name": sheet_name,  #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
+                 "Billable Time (Hours)": (total_working_days - leave_taken) * 8,
+                 #    "Weekends": weekends, "Public Holidays": public_holiday,
+                 "Total Number of Billable Days": total_working_days - leave_taken,
+                 "Service Credit Pool Days": leave_taken, })
+            user_leave_record.append(
+                {"name": sheet_name, "id_521": details[0], "year": year, "month": month, "leave_days": leave_dates})
             progress_step += int(step)
             progress_bar.setValue(progress_step)
         else:
@@ -660,7 +666,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
 
             wb_style = load_workbook(excel_file_path)
             border = Border(left=Side(border_style="thin"), right=Side(border_style="thin"), top=Side(border_style="thin"),
-                bottom=Side(border_style="thin"), )
+                            bottom=Side(border_style="thin"), )
             for i in sheets_name:
                 sheet = wb_style[i]
 
@@ -673,16 +679,16 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                             for k in cell_list:
                                 cell_bold = sheet[k]
                                 cell_bold.fill = PatternFill(start_color="b6bbbf", end_color="b6bbbf",
-                                    fill_type="solid", )  # grey color
+                                                             fill_type="solid", )  # grey color
                         if cell.value == "Leave":
                             cell_bold = sheet[cell.coordinate]
                             cell_bold.fill = PatternFill(start_color="fce1dc", end_color="fce1dc",
-                                fill_type="solid", )  # red color
+                                                         fill_type="solid", )  # red color
 
                         if cell.value == "Holiday":
                             cell_bold = sheet[cell.coordinate]
                             cell_bold.fill = PatternFill(start_color="cffccf", end_color="cffccf",
-                                fill_type="solid", )  # green color
+                                                         fill_type="solid", )  # green color
 
                         if cell.value in ["Leaves Taken", "Weekends", "Public Holidays", "Billable Days", ]:
                             cell_bold = sheet[cell.coordinate]
@@ -698,10 +704,10 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
                     cell_bold.font = Font(bold=True)
                     if j == "G2":
                         cell_bold.fill = PatternFill(start_color="fce1dc", end_color="fce1dc",
-                            fill_type="solid", )  # red color
+                                                     fill_type="solid", )  # red color
                     else:
                         cell_bold.fill = PatternFill(start_color="b6bbbf", end_color="b6bbbf",
-                            fill_type="solid", )  # grey color
+                                                     fill_type="solid", )  # grey color
 
                 for j in ["A4", "B4", "C4", "D4", "E4", "F4"]:
                     cell_bold = sheet[j]
@@ -749,6 +755,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
 
         return [500, str(e), None, None]
 
+
 def format_date(date_str):
     if isinstance(date_str, Timestamp):
         date_str = date_str.strftime("%Y-%m-%d")  # Convert Timestamp to string
@@ -760,6 +767,7 @@ def format_date(date_str):
     except (ValueError, TypeError):
         # If parsing fails or the input is not a string, return the original value
         return str(date_str)
+
 
 # Preprocess the name and item['Name'] strings
 def preprocess_name(input_str):
@@ -875,7 +883,6 @@ class MainWindow(QMainWindow):
         self.stacked_widget.addWidget(self.create_load_data_page())  # ✅ New Load Data Page
         self.stacked_widget.addWidget(self.create_about_page())
 
-
     def initialize_database(self):
         """Initialize database connection and required tables"""
         try:
@@ -884,17 +891,15 @@ class MainWindow(QMainWindow):
 
             # Check existing tables
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table';")
-            existing_tables = [table[0].lower() for table in cursor.fetchall()]
+            existing_tables = [table[0].lower() for table in cursor.fetchall() if table[0].lower() != 'sqlite_sequence']
 
             # Table creation queries with corrected syntax
-            tables = {
-                'holiday': '''
+            tables = {'holiday': '''
                             CREATE TABLE IF NOT EXISTS holiday (
                                 year TEXT PRIMARY KEY,
                                 holidays TEXT
                             )
-                        ''',
-                'user': '''
+                        ''', 'user': '''
                             CREATE TABLE IF NOT EXISTS user (
                                 name TEXT,
                                 id_521 TEXT,
@@ -903,8 +908,7 @@ class MainWindow(QMainWindow):
                                 attendance_report TEXT,
                                 PRIMARY KEY (name, month, year)
                             )
-                        ''',
-                'user_leave': '''
+                        ''', 'user_leave': '''
                             CREATE TABLE IF NOT EXISTS user_leave (
                                 name TEXT,
                                 id_521 TEXT,
@@ -913,8 +917,7 @@ class MainWindow(QMainWindow):
                                 leave_days TEXT,
                                 PRIMARY KEY (name, year, month)
                             )
-                        ''',
-                'resource_mapping': '''
+                        ''', 'resource_mapping': '''
                             CREATE TABLE IF NOT EXISTS resource_mapping (
                                 full_name TEXT,
                                 id_521 TEXT PRIMARY KEY,
@@ -923,8 +926,7 @@ class MainWindow(QMainWindow):
                                 start_date TEXT,
                                 end_date TEXT
                             )
-                        ''',
-                'non_complaint_user': '''
+                        ''', 'non_complaint_user': '''
                             CREATE TABLE IF NOT EXISTS non_complaint_user (
                                 name TEXT,
                                 id_521 TEXT,
@@ -936,8 +938,7 @@ class MainWindow(QMainWindow):
                                 month_holiday_dates TEXT,
                                 PRIMARY KEY (name, year, month)
                             )
-                        '''
-            }
+                        '''}
 
             # Create missing tables
             created_tables = []
@@ -953,16 +954,13 @@ class MainWindow(QMainWindow):
 
             # Update database page with table list
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
-            all_tables = [table[0] for table in cursor.fetchall()]
+            all_tables = [table[0] for table in cursor.fetchall() if table[0].lower() != 'sqlite_sequence']
 
             # Update dropdown
             self.db_table_combo.clear()
             self.db_table_combo.addItems(all_tables)
 
-            # # Check for current year holidays
-            # cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))
-            # if not cursor.fetchone():
-            #     self.show_holiday_import_dialog()
+            # # Check for current year holidays  # cursor.execute("SELECT year FROM holiday WHERE year = ?", (self.current_year,))  # if not cursor.fetchone():  #     self.show_holiday_import_dialog()
 
         except sqlite3.Error as e:
             error_msg = f"Database error: {str(e)}"
@@ -1157,7 +1155,7 @@ class MainWindow(QMainWindow):
 
             for _, row in df.iterrows():
                 values = [row[col].isoformat() if column_defs[col] == "DATE" and pd.notnull(row[col]) else row[col] for col
-                    in column_defs]
+                          in column_defs]
                 cursor.execute(insert_sql, values)
 
             # Step 4: Optional metadata logging
@@ -1171,7 +1169,7 @@ class MainWindow(QMainWindow):
             """
             cursor.execute(metadata_sql)
             cursor.execute("INSERT INTO imported_files_metadata (table_name, columns, imported_at) VALUES (?, ?, ?)",
-                (table_name, json.dumps(sanitized_map), datetime.now().isoformat()))
+                           (table_name, json.dumps(sanitized_map), datetime.now().isoformat()))
 
             self.db_connection.commit()
 
@@ -1183,6 +1181,7 @@ class MainWindow(QMainWindow):
         finally:
             if cursor:
                 cursor.close()
+
     def add_data_resource_tab(self, df):
         required_columns = {"Full Name", "521 ID", "Point of Contact", "Team", "Start Date", "End Date"}
         if not required_columns.issubset(df.columns):
@@ -1238,8 +1237,8 @@ class MainWindow(QMainWindow):
     def show_holiday_import_dialog(self):
         """Show holiday import prompt and handle file selection"""
         reply = QMessageBox.question(self, "Holiday Data Required",
-            f"No holidays found for {self.current_year}. Would you like to import from Excel?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                     f"No holidays found for {self.current_year}. Would you like to import from Excel?",
+                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if reply == QMessageBox.StandardButton.Yes:
             self.import_holidays_from_excel()
@@ -1247,7 +1246,7 @@ class MainWindow(QMainWindow):
     def import_holidays_from_excel(self):
         """Handle Excel and Numbers import with datetime-formatted cells"""
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "",
-            "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
+                                                   "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
 
         if not file_path:
             return
@@ -1338,7 +1337,7 @@ class MainWindow(QMainWindow):
                             if isinstance(cell_value, str):
                                 # Try multiple date formats
                                 date_formats = ["%Y-%m-%d %H:%M:%S", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y", "%d/%m/%Y",
-                                    "%Y/%m/%d"]
+                                                "%Y/%m/%d"]
                                 date_obj = None
                                 for fmt in date_formats:
                                     try:
@@ -1380,9 +1379,9 @@ class MainWindow(QMainWindow):
                                       f"Technical error: {str(numbers_error)}")
 
                     reply = QMessageBox.question(self, "Numbers File Conversion Required",
-                        "Numbers file could not be read directly.\n\n"
-                        "Would you like to see conversion instructions?",
-                        QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                                 "Numbers file could not be read directly.\n\n"
+                                                 "Would you like to see conversion instructions?",
+                                                 QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
                     if reply == QMessageBox.StandardButton.Yes:
                         QMessageBox.information(self, "Conversion Instructions", conversion_msg)
@@ -1403,19 +1402,19 @@ class MainWindow(QMainWindow):
 
             if exists:
                 confirm = QMessageBox.question(self, "Override Confirmation",
-                    f"Holidays for {excel_year} already exist. Override?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                               f"Holidays for {excel_year} already exist. Override?",
+                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if confirm != QMessageBox.StandardButton.Yes:
                     return
 
             # Insert/Update data
             cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
-                (excel_year, json.dumps(holidays)))
+                           (excel_year, json.dumps(holidays)))
             self.db_connection.commit()
 
             file_type = "Excel" if file_extension in ['.xlsx', '.xls'] else "Numbers"
             QMessageBox.information(self, "Import Successful",
-                f"Successfully imported {len(holidays)} holidays for {excel_year} from {file_type} file")
+                                    f"Successfully imported {len(holidays)} holidays for {excel_year} from {file_type} file")
 
         except Exception as e:
             QMessageBox.critical(self, "Import Error", f"Failed to import holidays:\n{str(e)}")
@@ -1435,7 +1434,6 @@ class MainWindow(QMainWindow):
         # Show status message in home page for demo
         if hasattr(self, 'home_status_label'):
             self.home_status_label.setText(status_text)
-
 
     def create_home_page(self):
         page = QWidget()
@@ -1770,7 +1768,7 @@ class MainWindow(QMainWindow):
         progress_group = QWidget()
         progress_layout = QVBoxLayout(progress_group)
         progress_layout.setContentsMargins(0, 10, 0, 0)
-        
+
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("progress_bar")
         self.progress_bar.setValue(0)
@@ -1793,11 +1791,9 @@ class MainWindow(QMainWindow):
         # progress_input_row.addWidget(self.progress_bar)
         progress_layout.addWidget(self.progress_bar)
 
-
         # Generate Button
         generate_container = QHBoxLayout()
         generate_container.addStretch()  # Left stretch
-
 
         self.generate_button = QPushButton("Generate Report")
         self.generate_button.setObjectName("generate_button")
@@ -1904,6 +1900,7 @@ class MainWindow(QMainWindow):
         finally:
             if cursor:
                 cursor.close()
+
     def clean_keys(self, dict_list):
         cleaned_list = []
         for data_dict in dict_list:
@@ -1944,7 +1941,6 @@ class MainWindow(QMainWindow):
 
                 self.name_mapping.update(
                     {name: [item['id_521'], item['point_of_contact'], item['start_date'], item['end_date']]})
-
 
             for k, v in self.categories.items():
                 temp_list = sorted(v)
@@ -2026,11 +2022,7 @@ class MainWindow(QMainWindow):
         # ------------------------------------------------------
         # 1) Write Headers at Row 4 (B4, C4, D4)
         # ------------------------------------------------------
-        headers = {
-            2: "Name",
-            3: "Total Number of Billable Days",
-            4: "Leave Days"
-        }
+        headers = {2: "Name", 3: "Total Number of Billable Days", 4: "Leave Days"}
 
         for col_idx, header_text in headers.items():
             cell = sheet.cell(row=4, column=col_idx, value=header_text)
@@ -2080,18 +2072,14 @@ class MainWindow(QMainWindow):
         total_cell_B.border = cell_border
 
         # Sum formula for column C
-        total_cell_C = sheet.cell(
-            row=total_row, column=3,
-            value=f"=SUM({get_column_letter(3)}{start_row}:{get_column_letter(3)}{last_data_row})"
-        )
+        total_cell_C = sheet.cell(row=total_row, column=3,
+            value=f"=SUM({get_column_letter(3)}{start_row}:{get_column_letter(3)}{last_data_row})")
         total_cell_C.alignment = Alignment(horizontal="center", vertical="center")
         total_cell_C.border = cell_border
 
         # Sum formula for column D
-        total_cell_D = sheet.cell(
-            row=total_row, column=4,
-            value=f"=SUM({get_column_letter(4)}{start_row}:{get_column_letter(4)}{last_data_row})"
-        )
+        total_cell_D = sheet.cell(row=total_row, column=4,
+            value=f"=SUM({get_column_letter(4)}{start_row}:{get_column_letter(4)}{last_data_row})")
         total_cell_D.alignment = Alignment(horizontal="center", vertical="center")
         total_cell_D.border = cell_border
 
@@ -2148,9 +2136,9 @@ class MainWindow(QMainWindow):
 
         if not self.HOLIDAY_LIST:
             # Show error message (red)
-            self.show_message(f"Error: Please load the holiday corresponding to the year {self.selected_year}.", "error", 5000)
+            self.show_message(f"Error: Please load the holiday corresponding to the year {self.selected_year}.", "error",
+                              5000)
             return None
-
 
         if self.df:
             self.df = self.clean_keys(self.df)
@@ -2162,9 +2150,9 @@ class MainWindow(QMainWindow):
                     coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
                     valid_rsnames)]
 
-                status, response, user_data, non_complaince_resources, user_leave_record = (generate_excel(
-                        self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST, self.name_mapping,
-                        self.name_order_list, self.progress_bar))
+                status, response, user_data, non_complaince_resources, user_leave_record = (
+                generate_excel(self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST,
+                    self.name_mapping, self.name_order_list, self.progress_bar))
                 if status == 200:
                     remaining_val = 100 - self.progress_bar.value()
 
@@ -2175,11 +2163,11 @@ class MainWindow(QMainWindow):
                         self.add_summary_page(user_data, self.file_name)
                         self.progress_bar.setValue(self.progress_bar.value() + int(step))
                 else:
-                    self.show_message(f"Error: {response}",
-                                      "error", 5000)
+                    self.show_message(f"Error: {response}", "error", 5000)
 
                 if non_complaince_resources:
-                    self.non_compliance_resources(non_complaince_resources, f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
+                    self.non_compliance_resources(non_complaince_resources,
+                                                  f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
                     self.update_non_complaint_user(non_complaince_resources)
 
                 if user_leave_record:
@@ -2188,8 +2176,7 @@ class MainWindow(QMainWindow):
             # sys.exit(1)
             self.progress_bar.setValue(100)
         else:
-            self.show_message(f"Error: Please provide raw excel file as an input.",
-                              "error", 5000)
+            self.show_message(f"Error: Please provide raw excel file as an input.", "error", 5000)
 
     def update_user_leave(self, data):
         """
@@ -2210,16 +2197,12 @@ class MainWindow(QMainWindow):
                 month = d.get("month", "")
                 leave_days = ",".join(str(x) for x in d.get("leave_days", [])) if d.get("leave_days") else ""
 
-
                 try:
                     # Check if a record exists using either (name, year, month) or (id_521, year, month)
-                    cursor.execute(
-                        """
+                    cursor.execute("""
                         SELECT COUNT(*) FROM user_leave 
                         WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
-                        """,
-                        (name, year, month, id_521, year, month)
-                    )
+                        """, (name, year, month, id_521, year, month))
                     exists = cursor.fetchone()[0]
                 except sqlite3.Error as e:
                     print(f"Error checking existence for {name}: {e}")
@@ -2228,27 +2211,21 @@ class MainWindow(QMainWindow):
                 if exists:
                     try:
                         # Update the existing record
-                        cursor.execute(
-                            """
+                        cursor.execute("""
                             UPDATE user_leave
                             SET id_521 = ?, leave_days = ?
                             WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
-                            """,
-                            (id_521, leave_days, name, year, month, id_521, year, month)
-                        )
+                            """, (id_521, leave_days, name, year, month, id_521, year, month))
                     except sqlite3.Error as e:
                         print(f"Error updating record for {name}: {e}")
                         continue
                 else:
                     try:
                         # Insert a new record
-                        cursor.execute(
-                            """
+                        cursor.execute("""
                             INSERT INTO user_leave (name, id_521, year, month, leave_days)
                             VALUES (?, ?, ?, ?, ?)
-                            """,
-                            (name, id_521, year, month, leave_days)
-                        )
+                            """, (name, id_521, year, month, leave_days))
                     except sqlite3.Error as e:
                         print(f"Error inserting record for {name}: {e}")
                         continue
@@ -2295,13 +2272,10 @@ class MainWindow(QMainWindow):
 
                 try:
                     # Check if a record already exists (by either key combination)
-                    cursor.execute(
-                        """
+                    cursor.execute("""
                         SELECT COUNT(*) FROM non_complaint_user 
                         WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
-                        """,
-                        (name, year, month, id_521, year, month)
-                    )
+                        """, (name, year, month, id_521, year, month))
                     exists = cursor.fetchone()[0]
                 except sqlite3.Error as e:
                     print(f"Error checking existence for {name}: {e}")
@@ -2310,8 +2284,7 @@ class MainWindow(QMainWindow):
                 if exists:
                     try:
                         # Update existing record
-                        cursor.execute(
-                            """
+                        cursor.execute("""
                             UPDATE non_complaint_user
                             SET id_521 = ?,
                                 observed_leave_count = ?,
@@ -2319,31 +2292,21 @@ class MainWindow(QMainWindow):
                                 month_holiday_count = ?,
                                 month_holiday_dates = ?
                             WHERE (name=? AND year=? AND month=?) OR (id_521=? AND year=? AND month=?)
-                            """,
-                            (id_521,
-                             observed_leave_count,
-                             observed_leave_dates,
-                             month_holiday_count,
-                             month_holiday_dates,
-                             name, year, month,
-                             id_521, year, month)
-                        )
+                            """, (
+                        id_521, observed_leave_count, observed_leave_dates, month_holiday_count, month_holiday_dates, name,
+                        year, month, id_521, year, month))
                     except sqlite3.Error as e:
                         print(f"Error updating record for {name}: {e}")
                         continue
                 else:
                     try:
                         # Insert new record
-                        cursor.execute(
-                            """
+                        cursor.execute("""
                             INSERT INTO non_complaint_user 
                             (name, id_521, year, month, observed_leave_count, observed_leave_dates, month_holiday_count, month_holiday_dates)
                             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                            """,
-                            (name, id_521, year, month,
-                             observed_leave_count, observed_leave_dates,
-                             month_holiday_count, month_holiday_dates)
-                        )
+                            """, (name, id_521, year, month, observed_leave_count, observed_leave_dates, month_holiday_count,
+                                  month_holiday_dates))
                     except sqlite3.Error as e:
                         print(f"Error inserting record for {name}: {e}")
                         continue
@@ -2384,15 +2347,9 @@ class MainWindow(QMainWindow):
                 else:
                     self.show_message("Invalid Raw excel, please check the file or selected month.", "error", 5000)
                     self.main_input.setPlainText("")
-                    self.df = None
-                # # Update progress
-                # self.progress_bar.setValue(0)  # 0-100%
-                #
-                # # Show/hide when needed
-                # self.progress_bar.setVisible(True)
+                    self.df = None  # # Update progress  # self.progress_bar.setValue(0)  # 0-100%  #  # # Show/hide when needed  # self.progress_bar.setVisible(True)
 
-                # Reset on completion
-                # self.progress_bar.reset()
+                # Reset on completion  # self.progress_bar.reset()
             except Exception as e:
                 print(e)
                 self.show_message("Invalid Raw excel, please check the file.", "error", 5000)
@@ -2427,7 +2384,7 @@ class MainWindow(QMainWindow):
 
                 # Standardize the "Full Name" field by removing commas and spaces
                 for item in self.raw_category_list:
-                    name  = clean_string(item['Full Name'])
+                    name = clean_string(item['Full Name'])
                     team = item["Team"]
 
                     # Check if the team is already in the dictionary
@@ -2436,10 +2393,8 @@ class MainWindow(QMainWindow):
                     else:
                         self.categories[team] = [name]
 
-                    self.name_mapping.update({name:[item["521 ID"], item["Point of Contact"], item["Start Date"],
-                        item["End Date"]]})
-
-
+                    self.name_mapping.update(
+                        {name: [item["521 ID"], item["Point of Contact"], item["Start Date"], item["End Date"]]})
 
                 # Create a mapping from Full Name to 521 ID for quick lookup
                 # self.name_mapping = {
@@ -2458,8 +2413,8 @@ class MainWindow(QMainWindow):
             self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
             self.categories, self.name_mapping = {}, {}  # ✅ Separate dictionaries
             self.category_input.setPlainText(f"")
-            self.show_message(f"Error: Not a valid category file",
-                              "error", 5000)
+            self.show_message(f"Error: Not a valid category file", "error", 5000)
+
     def show_format_guide(self):
         """Show Excel format requirements"""
         guide_text = """
@@ -2532,7 +2487,7 @@ class MainWindow(QMainWindow):
     def load_holidays_to_db(self):
         """Open file dialog and import holidays from Excel or Numbers"""
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Holiday File", "",
-            "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
+                                                   "Spreadsheet Files (*.xlsx *.xls *.numbers);;Excel Files (*.xlsx *.xls);;Numbers Files (*.numbers);;All Files (*)")
 
         if not file_path:
             return
@@ -2583,11 +2538,11 @@ class MainWindow(QMainWindow):
 
                         # Ask user if they want to try alternative method
                         reply = QMessageBox.question(self, "Numbers File Detected",
-                            "Numbers files require conversion to Excel format.\n\n"
-                            "Would you like to:\n"
-                            "• YES: Get instructions for manual conversion\n"
-                            "• NO: Cancel and select a different file",
-                            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                                     "Numbers files require conversion to Excel format.\n\n"
+                                                     "Would you like to:\n"
+                                                     "• YES: Get instructions for manual conversion\n"
+                                                     "• NO: Cancel and select a different file",
+                                                     QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
                         if reply == QMessageBox.StandardButton.Yes:
                             QMessageBox.information(self, "Conversion Instructions", "To convert your Numbers file:\n\n"
@@ -2678,14 +2633,14 @@ class MainWindow(QMainWindow):
 
             if exists:
                 confirm = QMessageBox.question(self, "Override Confirmation",
-                    f"Holidays for {excel_year} already exist. Override?",
-                    QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                               f"Holidays for {excel_year} already exist. Override?",
+                                               QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
                 if confirm != QMessageBox.StandardButton.Yes:
                     return
 
             # Insert/Update data
             cursor.execute("INSERT OR REPLACE INTO holiday (year, holidays) VALUES (?, ?)",
-                (excel_year, json.dumps(self.HOLIDAY_LIST)))
+                           (excel_year, json.dumps(self.HOLIDAY_LIST)))
             self.db_connection.commit()
 
             # Update UI
@@ -2703,6 +2658,7 @@ class MainWindow(QMainWindow):
         finally:
             if 'cursor' in locals() and cursor:
                 cursor.close()
+
     def show_holiday_viewer(self):
         """Show holiday viewer dialog with table display"""
         dialog = QDialog(self)
@@ -2872,7 +2828,7 @@ class MainWindow(QMainWindow):
 
             cursor.execute(f"SELECT * FROM {table_name}")
             rows = cursor.fetchall()
-            self.table_view.clear()#reset the view in every table selected
+            self.table_view.clear()  #reset the view in every table selected
             # Configure table view with modern styling
             self.table_view.setRowCount(len(rows))
             self.table_view.setColumnCount(len(columns) + 1)
@@ -3061,7 +3017,7 @@ class MainWindow(QMainWindow):
             self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
             # Action column with proper width calculation
-            if len(columns) <=3:
+            if len(columns) <= 3:
                 # Set all columns to have max width and word wrap
                 for col in range(len(columns)):
                     # Set max width to 250 (adjust as needed) with word wrap
@@ -3497,6 +3453,7 @@ class MainWindow(QMainWindow):
                     cursor.close()
                 except:
                     pass
+
     # Test the query manually to debug:
     def debug_rowid_query(self, table_name, columns, old_values):
         """Debug function to test the ROWID query"""
@@ -3518,6 +3475,7 @@ class MainWindow(QMainWindow):
 
         cursor.close()
         return results
+
     def delete_row(self, table_name, row_data):
         """Delete a row from the database after confirmation"""
         confirm = QMessageBox.question(self, "Confirm Delete", "Are you sure you want to delete this record?",
@@ -3573,8 +3531,8 @@ class MainWindow(QMainWindow):
             return
 
         confirm = QMessageBox.question(self, "Confirm Delete",
-            f"Are you sure you want to permanently delete the table '{self.current_table}'?",
-            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                                       f"Are you sure you want to permanently delete the table '{self.current_table}'?",
+                                       QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
 
         if confirm == QMessageBox.StandardButton.Yes:
             try:
@@ -3603,6 +3561,7 @@ class MainWindow(QMainWindow):
         if self.db_connection:
             self.db_connection.close()
         event.accept()
+
     def create_about_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
@@ -3645,7 +3604,7 @@ class MainWindow(QMainWindow):
 
     def update_theme_button(self):
         theme_data = {"Dark": {"icon": "🌙", "text": "Dark"}, "Light": {"icon": "☀️", "text": "Light"},
-            "System": {"icon": "⚙️", "text": "System"}}
+                      "System": {"icon": "⚙️", "text": "System"}}
 
         current_data = theme_data[self.current_theme]
         btn_text = f"{current_data['icon']} {current_data['text']}"
