@@ -419,6 +419,19 @@ def get_details_for_name(name, name_mapping):
     # If no exact 100% match is found, return (None, None)
     return None
 
+def sanitize_sheet_name(name: str, default: str = "Sheet1") -> str:
+    """
+    Returns a safe sheet name, max 31 characters, removing illegal characters.
+    """
+    if not name:
+        return default
+
+    # Remove any characters not allowed in Excel sheet names
+    for char in ['\\', '/', '*', '?', ':', '[', ']']:
+        name = name.replace(char, '')
+
+    # Truncate to 31 characters
+    return name[:31]
 
 def generate_excel(month, year, output_file_name, selected_row, holiday_list, name_mapping, name_order_list, progress_bar):
     global TOTAL_WORKING_DAY
@@ -610,15 +623,21 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
             df = pd.DataFrame(data)
 
             # Create a new sheet or get the existing one
-            sheet_name = new_data.get("Rsname")
+            sheet_name = sanitize_sheet_name(new_data.get("Rsname"))
             billable_days = 0
+            user_days_cal = 0
             for row in data_model:
                 value = row[2]  # third element
+                is_weekend_flag = row[3] == 'Weekend'
                 if isinstance(value, (int, float)):
                     if value == 8:
                         billable_days += 1
                     elif value == 4:
                         billable_days += 0.5
+                # you Leave and holiday to be added then include 'Holiday' and 'Leave'
+                valid_status = ['Not On Boarded', 'Off Boarded']
+                if value not in valid_status and not is_weekend_flag:
+                    user_days_cal += 1
                 df.loc[len(df)] = row
 
             df.loc[len(df)] = ["Leaves Taken", leave_taken, "Billable Days", billable_days, "", "", "", "", ]
@@ -628,12 +647,20 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
 
             # print(df)
             df_sheets.update({sheet_name: df})
-            user_data.append(
-                {"Name": sheet_name,  #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
-                 "Billable Time (Hours)": (total_working_days - leave_taken) * 8,
-                 #    "Weekends": weekends, "Public Holidays": public_holiday,
-                 "Total Number of Billable Days": total_working_days - leave_taken,
-                 "Service Credit Pool Days": leave_taken, })
+            if sm_flag or em_flag:
+                user_data.append(
+                    {"Name": sheet_name,  # "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
+                     "Billable Time (Hours)": (user_days_cal - leave_taken) * 8,
+                     #    "Weekends": weekends, "Public Holidays": public_holiday,
+                     "Total Number of Billable Days": user_days_cal - leave_taken,
+                     "Service Credit Pool Days": leave_taken, })
+            else:
+                user_data.append(
+                    {"Name": sheet_name,  #   "Total Billable Time": (total_working_days-leave_taken-public_holiday) * 8 ,
+                     "Billable Time (Hours)": (total_working_days - leave_taken) * 8,
+                     #    "Weekends": weekends, "Public Holidays": public_holiday,
+                     "Total Number of Billable Days": total_working_days - leave_taken,
+                     "Service Credit Pool Days": leave_taken, })
             user_leave_record.append(
                 {"name": sheet_name, "id_521": details[0], "year": year, "month": month, "leave_days": leave_dates})
             progress_step += int(step)
@@ -753,7 +780,7 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list, na
         fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
         print(exc_type, fname, exc_tb.tb_lineno)
 
-        return [500, str(e), None, None]
+        return [500, str(e), None, None, None]
 
 
 def format_date(date_str):
@@ -786,7 +813,7 @@ class MainWindow(QMainWindow):
         self.db_connection = None
         self.current_table = None
         self.current_year = str(datetime.now().year)  # Add this line
-        print(f"Current year : {self.current_year}")
+        # print(f"Current year : {self.current_year}")
         self.raw_category_list, self.name_order_list = [], []  # ✅ Separate lists
         self.categories, self.name_mapping = {}, {}  # ✅ Separate dictionaries
         self.HOLIDAY_LIST = []
@@ -2149,29 +2176,31 @@ class MainWindow(QMainWindow):
                 filtered_df = [record for record in self.df if any(
                     coverage_percentage(clean_string(record["Rsname"]), clean_string(valid_rs)) >= 60 for valid_rs in
                     valid_rsnames)]
+                if filtered_df:
+                    status, response, user_data, non_complaince_resources, user_leave_record = (
+                    generate_excel(self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST,
+                        self.name_mapping, self.name_order_list, self.progress_bar))
+                    if status == 200:
+                        remaining_val = 100 - self.progress_bar.value()
 
-                status, response, user_data, non_complaince_resources, user_leave_record = (
-                generate_excel(self.selected_month, self.selected_year, self.file_name, filtered_df, self.HOLIDAY_LIST,
-                    self.name_mapping, self.name_order_list, self.progress_bar))
-                if status == 200:
-                    remaining_val = 100 - self.progress_bar.value()
+                        step = remaining_val / 3
+                        if self.categories:
+                            # self.add_category_data(user_data)
+                            self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                            self.add_summary_page(user_data, self.file_name)
+                            self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                    else:
+                        self.show_message(f"Error: {response}", "error", 5000)
 
-                    step = remaining_val / 3
-                    if self.categories:
-                        # self.add_category_data(user_data)
-                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
-                        self.add_summary_page(user_data, self.file_name)
-                        self.progress_bar.setValue(self.progress_bar.value() + int(step))
+                    if non_complaince_resources:
+                        self.non_compliance_resources(non_complaince_resources,
+                                                      f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
+                        self.update_non_complaint_user(non_complaince_resources)
+
+                    if user_leave_record:
+                        self.update_user_leave(user_leave_record)
                 else:
-                    self.show_message(f"Error: {response}", "error", 5000)
-
-                if non_complaince_resources:
-                    self.non_compliance_resources(non_complaince_resources,
-                                                  f"{category}_non_complaint_{self.selected_month} {self.selected_year}.xlsx")
-                    self.update_non_complaint_user(non_complaince_resources)
-
-                if user_leave_record:
-                    self.update_user_leave(user_leave_record)
+                    print(f"No Data for the category - {category}")
 
             # sys.exit(1)
             self.progress_bar.setValue(100)
