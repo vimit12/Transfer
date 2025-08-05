@@ -874,10 +874,11 @@ class MainWindow(QMainWindow):
 
         self.btn_home = QPushButton("🏠 Home")
         self.btn_database = QPushButton("📁 Database")
-        self.btn_load_data = QPushButton("📑 Load Dataset")  # ✅ New Button
+        self.btn_load_data = QPushButton("📑 Upload Data")
+        self.btn_verify_excel = QPushButton("📊 Excel Wizard")
         self.btn_about = QPushButton("ℹ️ About")
 
-        for btn in [self.btn_home, self.btn_database, self.btn_load_data, self.btn_about]:
+        for btn in [self.btn_home, self.btn_database, self.btn_load_data, self.btn_verify_excel, self.btn_about]:
             btn.setCheckable(True)
             btn.setFixedSize(130, 40)
             btn.setFont(QFont("Segoe UI", 10))
@@ -899,7 +900,8 @@ class MainWindow(QMainWindow):
         self.btn_home.clicked.connect(lambda: self.switch_page(0))
         self.btn_database.clicked.connect(lambda: self.switch_page(1))
         self.btn_load_data.clicked.connect(lambda: self.switch_page(2))  # ✅ New Page
-        self.btn_about.clicked.connect(lambda: self.switch_page(3))
+        self.btn_verify_excel.clicked.connect(lambda: self.switch_page(3))
+        self.btn_about.clicked.connect(lambda: self.switch_page(4))
 
     def init_pages(self):
         # ======================
@@ -907,7 +909,8 @@ class MainWindow(QMainWindow):
         # ======================
         self.stacked_widget.addWidget(self.create_home_page())
         self.stacked_widget.addWidget(self.create_database_page())
-        self.stacked_widget.addWidget(self.create_load_data_page())  # ✅ New Load Data Page
+        self.stacked_widget.addWidget(self.create_load_data_page())
+        self.stacked_widget.addWidget(self.excel_loader())
         self.stacked_widget.addWidget(self.create_about_page())
 
     def initialize_database(self):
@@ -3615,6 +3618,103 @@ class MainWindow(QMainWindow):
         layout.addWidget(content)
         layout.addStretch()
         return page
+
+    def excel_loader(self):
+        """Creates the Excel Upload page with a button to trigger the upload and validation flow."""
+        page = QWidget()
+        layout = QVBoxLayout(page)
+
+        title = QLabel("📊 Excel Wizard - Upload and Validate Excel")
+        title.setStyleSheet("font-size: 16pt; font-weight: bold;")
+        layout.addWidget(title)
+
+        layout.addSpacing(10)
+
+        instruction = QLabel("Click the button below to upload an Excel or CSV file.\n"
+                             "You'll be able to review the schema and create a database table.")
+        instruction.setWordWrap(True)
+        layout.addWidget(instruction)
+
+        btn_start_upload = QPushButton("📂 Verify & Load Excel")
+        btn_start_upload.setFixedSize(220, 40)
+        btn_start_upload.setCursor(Qt.CursorShape.PointingHandCursor)
+        layout.addWidget(btn_start_upload)
+
+        layout.addStretch()
+
+        # Connect the button to open the upload/validation dialog
+        btn_start_upload.clicked.connect(self.launch_excel_schema_verification)
+
+        return page
+
+    def launch_excel_schema_verification(self):
+        """Opens file picker, validates schema, and creates table from Excel or CSV."""
+        file_path, _ = QFileDialog.getOpenFileName(self, "Select Excel or CSV File", "",
+                                                   "Excel Files (*.xlsx *.xls);;CSV Files (*.csv)")
+        if not file_path:
+            return
+
+        try:
+            if file_path.endswith(".csv"):
+                df = pd.read_csv(file_path)
+            else:
+                df = pd.read_excel(file_path)
+
+            headers = df.columns.tolist()
+
+            # Schema verification popup
+            schema_dialog = QDialog(self)
+            schema_dialog.setWindowTitle("🧪 Verify Excel Schema")
+            schema_dialog.resize(750, 500)
+
+            layout = QVBoxLayout(schema_dialog)
+            info_label = QLabel("Review and verify the inferred schema below. Adjust as necessary.")
+            layout.addWidget(info_label)
+
+            scroll_area = QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            inner_widget = QWidget()
+            form_layout = QFormLayout(inner_widget)
+
+            column_type_map = {}
+            for header in headers:
+                label = QLabel(str(header))
+                combo = QComboBox()
+                combo.addItems(["INTEGER", "TEXT", "REAL", "DATE"])
+                column_type_map[header] = combo
+                form_layout.addRow(label, combo)
+
+            scroll_area.setWidget(inner_widget)
+            layout.addWidget(scroll_area)
+
+            # Table name entry
+            table_name_input = QLineEdit()
+            table_name_input.setPlaceholderText("Enter table name...")
+            layout.addWidget(QLabel("Table Name:"))
+            layout.addWidget(table_name_input)
+
+            # Buttons
+            btn_create = QPushButton("✅ Create Table from Excel")
+            btn_create.setEnabled(False)
+            layout.addWidget(btn_create)
+
+            def validate():
+                btn_create.setEnabled(bool(table_name_input.text().strip()))
+
+            table_name_input.textChanged.connect(validate)
+
+            def on_create():
+                table_name = table_name_input.text().strip()
+                column_defs = {col: column_type_map[col].currentText() for col in headers}
+                self.create_dynamic_table(table_name, column_defs, df)
+                schema_dialog.accept()
+
+            btn_create.clicked.connect(on_create)
+
+            schema_dialog.exec()
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to load Excel/CSV file:\n{str(e)}")
 
     # ======================
     # CORE FUNCTIONALITY
