@@ -2203,6 +2203,7 @@ class MainWindow(QMainWindow):
                     print(f"No Data for the category - {category}")
 
             # sys.exit(1)
+            self.show_message("Report Generated Successfully!", "success", 10000)
             self.progress_bar.setValue(100)
         else:
             self.show_message(f"Error: Please provide raw excel file as an input.", "error", 5000)
