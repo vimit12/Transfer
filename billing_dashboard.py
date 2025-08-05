@@ -1076,15 +1076,180 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select Excel or CSV File", "",
                                                    "Excel Files (*.xlsx *.xls);;CSV Files (*.csv)")
         if file_path:
-            if file_path.endswith(".csv"):
-                df = pd.read_csv(file_path)
-            else:
-                df = pd.read_excel(file_path)
-            headers = df.columns.tolist()
-            self.show_table_creation_form(headers, df)
+            try:
+                # Load the file
+                if file_path.endswith(".csv"):
+                    df = pd.read_csv(file_path)
+                else:
+                    df = pd.read_excel(file_path)
+
+                # Validate the schema
+                validation_result = self.validate_excel_schema(df, file_path)
+
+                # Show appropriate message based on validation result
+                if validation_result["status"] == "success":
+                    # Show success message and proceed on OK
+                    msg_box = QMessageBox(self)
+                    msg_box.setIcon(QMessageBox.Icon.Information)
+                    msg_box.setWindowTitle("File Validation Success")
+                    msg_box.setText(validation_result["message"])
+                    msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+
+                    if msg_box.exec() == QMessageBox.StandardButton.Ok:
+                        # Proceed to table creation form
+                        headers = df.columns.tolist()
+                        self.show_table_creation_form(headers, df)
+
+                elif validation_result["status"] == "warning":
+                    # Show warning message and let user decide
+                    msg_box = QMessageBox(self)
+                    msg_box.setIcon(QMessageBox.Icon.Warning)
+                    msg_box.setWindowTitle("File Validation Warning")
+                    msg_box.setText(validation_result["message"])
+                    msg_box.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+                    msg_box.setDefaultButton(QMessageBox.StandardButton.Ok)
+
+                    if msg_box.exec() == QMessageBox.StandardButton.Ok:
+                        # User chose to proceed despite warnings
+                        headers = df.columns.tolist()
+                        self.show_table_creation_form(headers, df)  # If Cancel clicked, do nothing (don't proceed)
+
+                else:  # error status
+                    # Show error message - only OK button, don't proceed
+                    msg_box = QMessageBox(self)
+                    msg_box.setIcon(QMessageBox.Icon.Critical)
+                    msg_box.setWindowTitle("File Validation Error")
+                    msg_box.setText(validation_result["message"])
+                    msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+                    msg_box.exec()  # Do not proceed regardless of OK click
+
+            except Exception as e:
+                # Show critical error for file loading issues
+                msg_box = QMessageBox(self)
+                msg_box.setIcon(QMessageBox.Icon.Critical)
+                msg_box.setWindowTitle("File Loading Error")
+                msg_box.setText(f"❌ Error loading file:\n\n{str(e)}")
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+                msg_box.exec()
+
+    def validate_excel_schema(self, df, file_path):
+        """
+        Validate Excel/CSV schema for SQL compatibility
+        Returns: dict with 'status' ('success'/'warning'/'error'), 'message' string
+        """
+        errors = []
+
+        # Check 1: File must not be empty
+        if df.empty:
+            return {"status": "error",
+                "message": "❌ File Validation Failed:\n\n• The uploaded file is empty. Please upload a file with data."}
+
+        # Check 2: Must have headers (column names)
+        if df.columns.empty:
+            return {"status": "error",
+                "message": "❌ File Validation Failed:\n\n• No column headers found. Excel/CSV files must have column headers in the first row."}
+
+        # Check 3: Validate column headers
+        header_errors = []
+        for i, col in enumerate(df.columns):
+            col_name = str(col).strip()
+
+            # Check for empty/null headers
+            if pd.isna(col) or col_name == '' or col_name.lower() in ['nan', 'unnamed']:
+                header_errors.append(f"Column {i + 1}: Empty or invalid header name")
+                continue
+
+            # Check for duplicate headers
+            if list(df.columns).count(col) > 1:
+                header_errors.append(f"Column '{col_name}': Duplicate header name found")
+
+            # Check for SQL reserved words (basic check)
+            sql_reserved = ['select', 'insert', 'update', 'delete', 'create', 'drop', 'alter', 'table', 'database', 'index',
+                            'view', 'trigger', 'procedure', 'function', 'where', 'order', 'group', 'having', 'join', 'union',
+                            'distinct']
+            if col_name.lower() in sql_reserved:
+                header_errors.append(f"Column '{col_name}': Uses SQL reserved word (not recommended)")
+
+        if header_errors:
+            errors.extend(header_errors)
+
+        # Check 4: Validate data structure
+        data_errors = []
+
+        # Check for completely empty columns
+        for col in df.columns:
+            if df[col].isna().all():
+                data_errors.append(f"Column '{col}': Contains no data (all empty cells)")
+
+        # Check 5: Row structure validation
+        row_errors = []
+
+        # Check if all rows are empty
+        if df.isna().all().all():
+            row_errors.append("All rows contain only empty cells")
+
+        # Check for rows with all empty values (except header)
+        empty_rows = df.index[df.isna().all(axis=1)].tolist()
+        if len(empty_rows) > len(df) * 0.5:  # More than 50% empty rows
+            row_errors.append(f"Too many empty rows found ({len(empty_rows)} out of {len(df)} rows)")
+
+        # Check 6: Data type consistency warnings
+        consistency_warnings = []
+        for col in df.columns:
+            non_null_data = df[col].dropna()
+            if len(non_null_data) > 0:
+                # Check for mixed data types that might cause issues
+                data_types = set(type(val).__name__ for val in non_null_data)
+                if len(data_types) > 2:  # More than 2 different data types
+                    consistency_warnings.append(f"Column '{col}': Contains mixed data types - {', '.join(data_types)}")
+
+        # Compile all errors
+        all_errors = []
+        if header_errors:
+            all_errors.append("📋 Header Issues:")
+            all_errors.extend([f"  • {error}" for error in header_errors])
+            all_errors.append("")
+
+        if data_errors:
+            all_errors.append("📊 Data Issues:")
+            all_errors.extend([f"  • {error}" for error in data_errors])
+            all_errors.append("")
+
+        if row_errors:
+            all_errors.append("📝 Row Structure Issues:")
+            all_errors.extend([f"  • {error}" for error in row_errors])
+            all_errors.append("")
+
+        if consistency_warnings:
+            all_errors.append("⚠️ Data Type Warnings:")
+            all_errors.extend([f"  • {warning}" for warning in consistency_warnings])
+            all_errors.append("")
+
+        # Determine validation result
+        critical_errors = header_errors + data_errors + row_errors
+
+        if critical_errors:
+            error_message = "❌ File Validation Failed:\n\n" + "\n".join(all_errors)
+            error_message += "\n💡 Suggestions:\n"
+            error_message += "  • Ensure first row contains unique column headers\n"
+            error_message += "  • Remove completely empty rows/columns\n"
+            error_message += "  • Fix duplicate or missing headers\n"
+            error_message += "  • Ensure data is properly structured in rows and columns"
+
+            return {"status": "error", "message": error_message}
+        elif consistency_warnings:
+            # Show warnings but allow to proceed
+            warning_message = "⚠️ File Validation Warnings:\n\n" + "\n".join(all_errors)
+            warning_message += "\n✅ File structure is valid but contains data type inconsistencies.\n"
+            warning_message += "You can proceed, but please review the data types during table creation."
+
+            return {"status": "warning", "message": warning_message}
+        else:
+            # All good
+            success_message = f"✅ File validation successful!\n\n📄 File: {file_path.split('/')[-1]}\n📊 Rows: {len(df)}\n📋 Columns: {len(df.columns)}"
+            return {"status": "success", "message": success_message}
 
     def show_table_creation_form(self, headers, df):
-
         dialog = QDialog(self)
         dialog.setWindowTitle("Define Table Structure")
         dialog.resize(700, 500)  # Wider dialog
@@ -1200,8 +1365,25 @@ class MainWindow(QMainWindow):
 
             self.db_connection.commit()
 
+            # Show success message with QMessageBox
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Information)
+            msg_box.setWindowTitle("Table Creation Success")
+            msg_box.setText(f"✅ Table '{table_name}' created successfully!\n\n📊 {len(df)} records imported.")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+
+            self.initialize_database()#again intialize the db page
+
         except sqlite3.Error as e:
-            print(f"Error creating table or inserting data: {str(e)}")
+            # Show database error with QMessageBox
+            msg_box = QMessageBox(self)
+            msg_box.setIcon(QMessageBox.Icon.Critical)
+            msg_box.setWindowTitle("Database Error")
+            msg_box.setText(f"❌ Database Error:\n\n{str(e)}")
+            msg_box.setStandardButtons(QMessageBox.StandardButton.Ok)
+            msg_box.exec()
+
             if self.db_connection:
                 self.db_connection.rollback()
 
