@@ -1259,6 +1259,7 @@ class MainWindow(QMainWindow):
         # Table Name input
         table_name_input = QLineEdit()
         table_name_input.setPlaceholderText("Enter Table Name")
+        table_name_input.setObjectName("tableNameInput")  # Set object name for styling
 
         main_layout.addWidget(QLabel("Table Name:"))
         main_layout.addWidget(table_name_input)
@@ -1294,15 +1295,54 @@ class MainWindow(QMainWindow):
         submit_btn.setEnabled(False)
         main_layout.addWidget(submit_btn)
 
-        # Enable submit when all fields are filled
+        # --- VALIDATION LOGIC ---
+        # A simple validator for common SQL table naming rules
+        # Starts with a letter or underscore, followed by letters, numbers, or underscores.
+        table_name_regex = re.compile(r'^[a-zA-Z_][a-zA-Z0-9_]*$')
+
+        # A list of common SQL reserved keywords to avoid
+        reserved_keywords = {
+            'SELECT', 'CREATE', 'TABLE', 'FROM', 'WHERE', 'AND', 'OR', 'NOT', 'INSERT',
+            'INTO', 'UPDATE', 'SET', 'DELETE', 'GROUP', 'BY', 'ORDER', 'ASC', 'DESC',
+            'JOIN', 'LEFT', 'RIGHT', 'INNER', 'OUTER', 'PRIMARY', 'KEY', 'FOREIGN',
+            'REFERENCES', 'NULL', 'UNIQUE', 'CHECK', 'DEFAULT'
+        }
+
+        def is_valid_table_name(name):
+            if not name:
+                return False
+            # Check against regex and reserved keywords
+            if not table_name_regex.match(name) or name.upper() in reserved_keywords:
+                return False
+            return True
+
+        def set_name_input_style(is_valid):
+            if is_valid:
+                # Revert to default style
+                table_name_input.setStyleSheet("")
+                table_name_input.setToolTip("")
+            else:
+                # Set background to light red and add a tooltip
+                table_name_input.setStyleSheet("background-color: #ffe6e6;")
+                table_name_input.setToolTip("Invalid table name. "
+                                            "It must start with a letter or underscore and "
+                                            "contain only letters, numbers, and underscores. "
+                                            "Spaces and special characters are not allowed.")
+
+        # --- CONNECTORS AND HANDLERS ---
         def check_form_complete():
-            if not table_name_input.text().strip():
+            is_name_valid = is_valid_table_name(table_name_input.text().strip())
+            set_name_input_style(is_name_valid)
+
+            if not is_name_valid:
                 submit_btn.setEnabled(False)
                 return
+
             for cb in dropdowns.values():
                 if cb.currentText() == "":
                     submit_btn.setEnabled(False)
                     return
+
             submit_btn.setEnabled(True)
 
         table_name_input.textChanged.connect(check_form_complete)
@@ -1311,11 +1351,32 @@ class MainWindow(QMainWindow):
 
         def on_submit():
             table_name = table_name_input.text().strip()
+
+            if not is_valid_table_name(table_name):
+                # Show error message box
+                msg_box = QMessageBox(dialog)
+                msg_box.setWindowTitle("Invalid Table Name")
+                msg_box.setText("The table name you entered is not valid.")
+                msg_box.setInformativeText(
+                    "Table names must:\n"
+                    "- Start with a letter (a-z, A-Z) or an underscore (_)\n"
+                    "- Contain only letters, numbers, and underscores\n"
+                    "- Not be a SQL reserved keyword\n"
+                    "Please correct the name and try again."
+                )
+                msg_box.setIcon(QMessageBox.Warning)
+                msg_box.exec_()
+                return  # Do not proceed
+
+            # If validation passes, proceed with table creation
             column_defs = {col: dropdowns[col].currentText() for col in headers}
             self.create_dynamic_table(table_name, column_defs, df)
             dialog.accept()
 
         submit_btn.clicked.connect(on_submit)
+
+        # Initial check to set the button state correctly on form load
+        check_form_complete()
         dialog.exec()
 
     def sanitize_column_name(self, col):
