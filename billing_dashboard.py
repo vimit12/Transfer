@@ -1279,7 +1279,7 @@ class MainWindow(QMainWindow):
         for header in headers:
             label = QLabel(str(header))
             combo = QComboBox()
-            combo.addItems(["INTEGER", "TEXT", "REAL", "DATE"])
+            combo.addItems(["TEXT", "INTEGER", "REAL", "DATE"])
             dropdowns[header] = combo
 
             col = row // ((len(headers) + 1) // 2)  # auto split into 2 columns
@@ -3848,8 +3848,8 @@ class MainWindow(QMainWindow):
         title.setObjectName("title")
 
         content = QLabel("Proprietary Software - Hitachi Digital Service\n\n"
-                         "Version 1.2.0\n"
-                         "Build Date: 2025-03-03\n\n"
+                         "Version 1.3.0\n"
+                         "Build Date: 2025-08-08\n\n"
                          "Developed using:\n"
                          "• Python 3.11\n"
                          "• PyQt6 Framework\n"
