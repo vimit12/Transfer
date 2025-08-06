@@ -1,3 +1,4 @@
+import copy
 import sys
 from collections import Counter
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout, QPushButton,
@@ -982,7 +983,7 @@ class MainWindow(QMainWindow):
             # Update database page with table list
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
             all_tables = [table[0] for table in cursor.fetchall() if table[0].lower() != 'sqlite_sequence']
-
+            self.all_tables_name = copy.deepcopy(all_tables)
             # Update dropdown
             self.db_table_combo.clear()
             self.db_table_combo.addItems(all_tables)
@@ -3821,7 +3822,10 @@ class MainWindow(QMainWindow):
                 self.current_table = None  # Reset current table
                 self.delete_table_btn.setEnabled(True)
                 self.export_btn.setEnabled(True)
+                self.initialize_database()
 
+                self.show_table_contents(self.all_tables_name[0])
+                self.db_table_combo.setPlaceholderText(self.all_tables_name[0])
             except sqlite3.Error as e:
                 QMessageBox.critical(self, "Database Error", f"Failed to delete table:\n{str(e)}")
 
