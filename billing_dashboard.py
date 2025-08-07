@@ -1090,7 +1090,7 @@ class MainWindow(QMainWindow):
                 border: 2px solid #5aa0ff;
             }
         """)
-        self.load_data_card.clicked.connect(self.handle_custom_file_upload)
+        self.load_data_card.clicked.connect(self.toggle_card_and_load_file)
 
         # Card layout (horizontal centering)
         card_layout = QHBoxLayout()
