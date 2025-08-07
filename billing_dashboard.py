@@ -875,10 +875,11 @@ class MainWindow(QMainWindow):
 
         self.btn_home = QPushButton("🏠 Home")
         self.btn_database = QPushButton("📁 Database")
-        self.btn_load_data = QPushButton("📑 Load Dataset")  # ✅ New Button
+        self.btn_load_data = QPushButton("📑 Load Dataset")
+        self.btn_load_spreadsheet = QPushButton("📊 Load Spreadsheet")
         self.btn_about = QPushButton("ℹ️ About")
 
-        for btn in [self.btn_home, self.btn_database, self.btn_load_data, self.btn_about]:
+        for btn in [self.btn_home, self.btn_database, self.btn_load_data, self.btn_load_spreadsheet, self.btn_about]:
             btn.setCheckable(True)
             btn.setFixedSize(130, 40)
             btn.setFont(QFont("Segoe UI", 10))
@@ -900,7 +901,8 @@ class MainWindow(QMainWindow):
         self.btn_home.clicked.connect(lambda: self.switch_page(0))
         self.btn_database.clicked.connect(lambda: self.switch_page(1))
         self.btn_load_data.clicked.connect(lambda: self.switch_page(2))  # ✅ New Page
-        self.btn_about.clicked.connect(lambda: self.switch_page(3))
+        self.btn_load_spreadsheet.clicked.connect(lambda: self.switch_page(3))
+        self.btn_about.clicked.connect(lambda: self.switch_page(4))
 
     def init_pages(self):
         # ======================
@@ -908,7 +910,8 @@ class MainWindow(QMainWindow):
         # ======================
         self.stacked_widget.addWidget(self.create_home_page())
         self.stacked_widget.addWidget(self.create_database_page())
-        self.stacked_widget.addWidget(self.create_load_data_page())  # ✅ New Load Data Page
+        self.stacked_widget.addWidget(self.create_load_data_page())
+        self.stacked_widget.addWidget(self.create_spreadsheet_page())
         self.stacked_widget.addWidget(self.create_about_page())
 
     def initialize_database(self):
@@ -1039,17 +1042,92 @@ class MainWindow(QMainWindow):
 
         return page
 
+    def toggle_card_and_load_file(self):
+        """Toggle card visibility and handle file upload"""
+        if self.load_data_card.isVisible():
+            # Card is visible, so load file first then hide
+            self.handle_custom_file_upload()
+            self.load_data_card.hide()
+        else:
+            # Card is hidden, so show it
+            self.load_data_card.show()
+
+    def create_spreadsheet_page(self):
+        page = QWidget()
+
+        # Outer layout to center contents vertically
+        outer_layout = QVBoxLayout(page)
+        outer_layout.setContentsMargins(20, 20, 20, 20)
+        outer_layout.setSpacing(20)
+
+        # Title
+        title = QLabel("📊 Spreadsheet Loader")
+        title.setStyleSheet("font-size: 18px; font-weight: bold;")
+        # title.setAlignment(AlignCenter)
+
+        # Clickable card
+        self.load_data_card = QPushButton("📂\nLoad Excel/CSV File")
+        self.load_data_card.setFixedSize(300, 200)
+        self.load_data_card.setStyleSheet("""
+            QPushButton {
+                background-color: #ffffff;
+                border: 2px solid #d0d0d0;
+                border-radius: 16px;
+                font-size: 18pt;
+                font-weight: 500;
+                padding: 30px;
+                color: #333;
+            }
+
+            QPushButton:hover {
+                background-color: #f2f9ff;
+                border: 2px solid #7cbfff;
+                color: #005999;
+            }
+
+            QPushButton:pressed {
+                background-color: #e6f0ff;
+                border: 2px solid #5aa0ff;
+            }
+        """)
+        self.load_data_card.clicked.connect(self.handle_custom_file_upload)
+
+        # Card layout (horizontal centering)
+        card_layout = QHBoxLayout()
+        card_layout.addStretch()
+        card_layout.addWidget(self.load_data_card)
+        card_layout.addStretch()
+
+        # Center the entire card section vertically
+        outer_layout.addWidget(title)
+        outer_layout.addStretch()
+        outer_layout.addLayout(card_layout)
+        outer_layout.addStretch()
+
+        return page
+
     def get_card_style(self):
         """Returns the CSS style for card buttons"""
         return """
             QPushButton {
-                background-color: #F0F0F0;
-                border-radius: 8px;
-                font-size: 12pt;
+                background-color: #ffffff;
+                border: 2px solid #d0d0d0;
+                border-radius: 16px;
+                font-size: 15pt;
                 font-weight: 500;
+                padding: 30px;
+                color: #333;
             }
+
             QPushButton:hover {
-                background-color: #E0E0E0;
+                background-color: #f2f9ff;
+                border: 2px solid #7cbfff;
+                color: #005999;
+            }
+
+            QPushButton:pressed {
+                background-color: #e6f0ff;
+                border: 2px solid #5aa0ff;
             }
         """
 
