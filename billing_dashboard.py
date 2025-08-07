@@ -1255,10 +1255,11 @@ class MainWindow(QMainWindow):
         # Check 4: Validate data structure
         data_errors = []
 
+        # :: TODO - Enable this section if you need validation for all empty rows
         # Check for completely empty columns
-        for col in df.columns:
-            if df[col].isna().all():
-                data_errors.append(f"Column '{col}': Contains no data (all empty cells)")
+        # for col in df.columns:
+        #     if df[col].isna().all():
+        #         data_errors.append(f"Column '{col}': Contains no data (all empty cells)")
 
         # Check 5: Row structure validation
         row_errors = []
@@ -1370,7 +1371,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(scroll_area)
 
         # Submit button
-        submit_btn = QPushButton("Create Table")
+        submit_btn = QPushButton("Load Table")
         submit_btn.setEnabled(False)
         main_layout.addWidget(submit_btn)
 
@@ -1449,7 +1450,10 @@ class MainWindow(QMainWindow):
 
             # If validation passes, proceed with table creation
             column_defs = {col: dropdowns[col].currentText() for col in headers}
-            self.create_dynamic_table(table_name, column_defs, df)
+
+            #:: TODO - Enable this below section if needed
+            # self.create_dynamic_table(table_name, column_defs, df)
+            self.create_and_show_table(table_name, column_defs, df)
             dialog.accept()
 
         submit_btn.clicked.connect(on_submit)
@@ -1457,6 +1461,327 @@ class MainWindow(QMainWindow):
         # Initial check to set the button state correctly on form load
         check_form_complete()
         dialog.exec()
+
+    def create_and_show_table(self, table_name, column_defs, df):
+        """Create table from DataFrame and display contents with enhanced UI"""
+        self.current_table = table_name
+
+        try:
+            # First, create the table in database if it doesn't exist
+            if hasattr(self, 'db_connection') and self.db_connection:
+                cursor = self.db_connection.cursor()
+
+                # Create table SQL
+                columns_sql = []
+                for col_name, col_type in column_defs.items():
+                    columns_sql.append(f'"{col_name}" {col_type}')
+
+                create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(columns_sql)})'
+                cursor.execute(create_table_sql)
+
+                # Insert DataFrame data into the table
+                df.to_sql(table_name, self.db_connection, if_exists='replace', index=False)
+                self.db_connection.commit()
+                cursor.close()
+
+            # Get data from DataFrame for display
+            columns = list(df.columns)
+            rows = df.values.tolist()
+
+            # Clear and configure table view with modern styling
+            self.table_view.clear()
+            self.table_view.setRowCount(len(rows))
+            self.table_view.setColumnCount(len(columns) + 1)
+            self.table_view.setHorizontalHeaderLabels(columns + ["Actions"])
+
+            # Make table cells uneditable
+            self.table_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+
+            # Enhanced table styling
+            self.table_view.setStyleSheet("""
+                QTableWidget {
+                    background-color: #ffffff;
+                    border: 1px solid #e0e0e0;
+                    border-radius: 8px;
+                    gridline-color: #f0f0f0;
+                    selection-background-color: #e3f2fd;
+                    font-size: 12px;
+                    font-family: 'Segoe UI', Arial, sans-serif;
+                }
+                QTableWidget::item {
+                    padding: 12px 8px;
+                    border-bottom: 1px solid #f5f5f5;
+                }
+                QTableWidget::item:selected {
+                    background-color: #e3f2fd;
+                    color: #1976d2;
+                }
+                QTableWidget::item:hover {
+                    background-color: #f8f9fa;
+                }
+                QHeaderView::section {
+                    background-color: #f8f9fa;
+                    color: #424242;
+                    font-weight: bold;
+                    font-size: 11px;
+                    text-transform: uppercase;
+                    letter-spacing: 0.5px;
+                    padding: 12px 8px;
+                    border: none;
+                    border-bottom: 2px solid #e0e0e0;
+                    border-right: 1px solid #e0e0e0;
+                }
+                QHeaderView::section:first {
+                    border-top-left-radius: 8px;
+                }
+                QHeaderView::section:last {
+                    border-top-right-radius: 8px;
+                    border-right: none;
+                }
+                QScrollBar:vertical {
+                    border: none;
+                    background: #f5f5f5;
+                    width: 12px;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:vertical {
+                    background: #c0c0c0;
+                    border-radius: 6px;
+                    min-height: 20px;
+                }
+                QScrollBar::handle:vertical:hover {
+                    background: #a0a0a0;
+                }
+                QScrollBar:horizontal {
+                    border: none;
+                    background: #f5f5f5;
+                    height: 12px;
+                    border-radius: 6px;
+                }
+                QScrollBar::handle:horizontal {
+                    background: #c0c0c0;
+                    border-radius: 6px;
+                    min-width: 20px;
+                }
+                QScrollBar::handle:horizontal:hover {
+                    background: #a0a0a0;
+                }
+                QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
+                    width: 0;
+                }
+            """)
+
+            # Enable word wrapping for all items
+            self.table_view.setWordWrap(True)
+
+            # Set row height to auto-adjust based on content
+            self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            self.table_view.verticalHeader().setDefaultSectionSize(80)
+
+            # Set alternating row colors
+            self.table_view.setAlternatingRowColors(True)
+
+            # Clear existing filters
+            while self.filter_layout.count():
+                if child := self.filter_layout.takeAt(0):
+                    if widget := child.widget():
+                        widget.deleteLater()
+
+            # Enhanced filter section
+            filter_container = QWidget()
+            filter_container.setStyleSheet("""
+                QWidget {
+                    background-color: #f8f9fa;
+                    border-radius: 8px;
+                    margin: 4px;
+                    padding: 8px;
+                }
+            """)
+
+            # Create a grid layout for filters
+            filter_grid_layout = QGridLayout(filter_container)
+            filter_grid_layout.setSpacing(4)
+            filter_grid_layout.setContentsMargins(12, 8, 12, 8)
+
+            # Add filter label
+            filter_label = QLabel("🔍 Filters:")
+            filter_label.setStyleSheet("""
+                QLabel {
+                    color: #424242;
+                    font-weight: bold;
+                    font-size: 12px;
+                    background: none;
+                    padding: 0;
+                }
+            """)
+            filter_grid_layout.addWidget(filter_label, 0, 0, 1, len(columns) + 1)
+
+            # Add filter inputs aligned with columns
+            self.filter_inputs = []
+            for col_idx, col_name in enumerate(columns):
+                filter_edit = QLineEdit()
+                filter_edit.setPlaceholderText(col_name)
+                filter_edit.setStyleSheet("""
+                    QLineEdit {
+                        background-color: white;
+                        border: 2px solid #e0e0e0;
+                        border-radius: 6px;
+                        padding: 6px 8px;
+                        font-size: 10px;
+                        min-height: 20px;
+                    }
+                    QLineEdit:focus {
+                        border-color: #2196f3;
+                        background-color: #fafafa;
+                    }
+                    QLineEdit:hover {
+                        border-color: #bdbdbd;
+                    }
+                """)
+                filter_edit.textChanged.connect(self.apply_filters)
+                filter_grid_layout.addWidget(filter_edit, 1, col_idx)
+                self.filter_inputs.append(filter_edit)
+
+            # Add clear filters button
+            clear_filters_btn = QPushButton("✖️")
+            clear_filters_btn.setFixedSize(38, 38)
+            clear_filters_btn.setStyleSheet("""
+                QPushButton {
+                    background-color: #ff9800;
+                    color: white;
+                    border: none;
+                    border-radius: 14px;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                QPushButton:hover {
+                    background-color: #f57c00;
+                }
+                QPushButton:pressed {
+                    background-color: #ef6c00;
+                }
+            """)
+            clear_filters_btn.setToolTip("Clear All Filters")
+            clear_filters_btn.clicked.connect(self.clear_all_filters)
+            filter_grid_layout.addWidget(clear_filters_btn, 1, len(columns))
+
+            # Add the filter container to the main layout
+            self.filter_layout.addWidget(filter_container)
+
+            # Configure columns
+            header = self.table_view.horizontalHeader()
+            self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+
+            # Set column widths based on number of columns
+            if len(columns) <= 3:
+                for col in range(len(columns)):
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                    self.table_view.setColumnWidth(col, 370)
+                    header.setMaximumSectionSize(400)
+                action_column_width = 80
+            else:
+                for col in range(len(columns)):
+                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
+                    self.table_view.setColumnWidth(col, 200)
+                    header.setMaximumSectionSize(300)
+                action_column_width = 210
+
+            header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
+            self.table_view.setColumnWidth(len(columns), action_column_width)
+            header.setMinimumSectionSize(action_column_width)
+
+            # Populate data with enhanced styling
+            for row_idx, row in enumerate(rows):
+                for col_idx, value in enumerate(row):
+                    # Handle pandas NaN values
+                    display_value = str(value) if value is not None and str(value) != 'nan' else ""
+                    item = QTableWidgetItem(display_value)
+                    item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
+
+                    # Add styling based on data type
+                    if isinstance(value, (int, float)) and str(value) != 'nan' and value != 0:
+                        item.setForeground(QColor("#1976d2"))
+                    elif str(value).lower() in ['true', 'false', 'yes', 'no']:
+                        item.setForeground(QColor("#4caf50" if str(value).lower() in ['true', 'yes'] else "#f44336"))
+
+                    self.table_view.setItem(row_idx, col_idx, item)
+
+                # Enhanced action buttons
+                action_widget = QWidget()
+                action_widget.setStyleSheet("background-color: transparent;")
+                action_layout = QHBoxLayout(action_widget)
+                action_layout.setContentsMargins(2, 2, 2, 2)
+                action_layout.setSpacing(6)
+
+                # Edit button
+                edit_btn = QPushButton("🖋️Edit")
+                edit_btn.setFixedSize(28, 28)
+                edit_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #FFB300;
+                        color: white;
+                        border: none;
+                        border-radius: 14px;
+                        font-weight: bold;
+                        font-size: 12px;
+                        padding: 6px 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #FFA000;
+                    }
+                    QPushButton:pressed {
+                        background-color: #FF8F00;
+                    }
+                """)
+                edit_btn.setToolTip("Edit Record")
+                edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
+
+                # Delete button
+                delete_btn = QPushButton("🗑️Delete")
+                delete_btn.setFixedSize(28, 28)
+                delete_btn.setStyleSheet("""
+                    QPushButton {
+                        background-color: #D32F2F;
+                        color: white;
+                        border: none;
+                        border-radius: 14px;
+                        font-weight: bold;
+                        font-size: 12px;
+                        padding: 6px 12px;
+                    }
+                    QPushButton:hover {
+                        background-color: #E53935;
+                    }
+                    QPushButton:pressed {
+                        background-color: #C62828;
+                    }
+                """)
+                delete_btn.setToolTip("Delete Record")
+                delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
+
+                action_layout.addWidget(edit_btn)
+                action_layout.addWidget(delete_btn)
+
+                self.table_view.setCellWidget(row_idx, len(columns), action_widget)
+
+            # Apply initial filters
+            self.apply_filters()
+
+            # Add drop shadow effect
+            shadow_effect = QGraphicsDropShadowEffect()
+            shadow_effect.setBlurRadius(15)
+            shadow_effect.setColor(QColor(0, 0, 0, 30))
+            shadow_effect.setOffset(0, 2)
+            self.table_view.setGraphicsEffect(shadow_effect)
+
+        except Exception as e:
+            QMessageBox.critical(self, "Table Creation Error", f"Failed to create and display table:\n{str(e)}")
+            if 'cursor' in locals():
+                cursor.close()
+
 
     def sanitize_column_name(self, col):
         if not isinstance(col, str):
