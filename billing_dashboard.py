@@ -1042,49 +1042,36 @@ class MainWindow(QMainWindow):
 
         return page
 
-    def toggle_card_and_load_file(self):
-        """Toggle card visibility and handle file upload"""
-        if self.load_data_card.isVisible():
-            # Card is visible, so load file first then hide
-            self.handle_custom_file_upload()
-            self.load_data_card.hide()
-        else:
-            # Card is hidden, so show it
-            self.load_data_card.show()
+    def load_file(self):
+        """Handle file upload without toggle functionality"""
+        self.handle_custom_file_upload()
 
     def create_spreadsheet_page(self):
         page = QWidget()
 
-        # Outer layout to center contents vertically
+        # Outer layout
         outer_layout = QVBoxLayout(page)
         outer_layout.setContentsMargins(20, 20, 20, 20)
         outer_layout.setSpacing(20)
 
-        # Title
+        # Header layout - title on left, button on right
+        header_layout = QHBoxLayout()
+
+        # Title on extreme left
         title = QLabel("📊 Spreadsheet Loader")
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
-        # title.setAlignment(AlignCenter)
+        title.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # Table view section
-        self.excel_table_view = QTableWidget()
-        self.excel_table_view.setSortingEnabled(True)
-        self.excel_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.excel_table_view.horizontalHeader().setStretchLastSection(True)
-        self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.excel_table_view.setAlternatingRowColors(True)
-
-
-        # Clickable card
-        self.load_data_card = QPushButton("📂\nLoad Excel/CSV File")
-        self.load_data_card.setFixedSize(300, 200)
+        # Button on extreme right
+        self.load_data_card = QPushButton("📂Load Excel/CSV File")
         self.load_data_card.setStyleSheet("""
             QPushButton {
                 background-color: #ffffff;
                 border: 2px solid #d0d0d0;
                 border-radius: 16px;
-                font-size: 18pt;
+                font-size: 14pt;
                 font-weight: 500;
-                padding: 30px;
+                padding: 10px 20px;
                 color: #333;
             }
 
@@ -1099,19 +1086,24 @@ class MainWindow(QMainWindow):
                 border: 2px solid #5aa0ff;
             }
         """)
-        self.load_data_card.clicked.connect(self.toggle_card_and_load_file)
+        self.load_data_card.clicked.connect(self.load_file)
 
-        # Card layout (horizontal centering)
-        card_layout = QHBoxLayout()
-        card_layout.addStretch()
-        card_layout.addWidget(self.load_data_card)
-        card_layout.addStretch()
+        # Add title and button to header layout
+        header_layout.addWidget(title)
+        header_layout.addStretch()  # Push button to right
+        header_layout.addWidget(self.load_data_card)
 
-        # Center the entire card section vertically
-        outer_layout.addWidget(title)
-        outer_layout.addWidget(self.excel_table_view)
-        outer_layout.addStretch()
-        outer_layout.addLayout(card_layout)
+        # Table view section
+        self.excel_table_view = QTableWidget()
+        self.excel_table_view.setSortingEnabled(True)
+        self.excel_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.excel_table_view.horizontalHeader().setStretchLastSection(True)
+        self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.excel_table_view.setAlternatingRowColors(True)
+
+        # Add components to main layout
+        outer_layout.addLayout(header_layout)  # Header with title and button
+        outer_layout.addWidget(self.excel_table_view)  # Table below
         outer_layout.addStretch()
 
         return page
