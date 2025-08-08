@@ -1104,7 +1104,7 @@ class MainWindow(QMainWindow):
         # Add components to main layout
         outer_layout.addLayout(header_layout)  # Header with title and button
         outer_layout.addWidget(self.excel_table_view)  # Table below
-        outer_layout.addStretch()
+        # outer_layout.addStretch()
 
         return page
 
