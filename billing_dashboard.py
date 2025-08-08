@@ -1065,6 +1065,15 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
         # title.setAlignment(AlignCenter)
 
+        # Table view section
+        self.excel_table_view = QTableWidget()
+        self.excel_table_view.setSortingEnabled(True)
+        self.excel_table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        self.excel_table_view.horizontalHeader().setStretchLastSection(True)
+        self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.excel_table_view.setAlternatingRowColors(True)
+
+
         # Clickable card
         self.load_data_card = QPushButton("📂\nLoad Excel/CSV File")
         self.load_data_card.setFixedSize(300, 200)
@@ -1100,6 +1109,7 @@ class MainWindow(QMainWindow):
 
         # Center the entire card section vertically
         outer_layout.addWidget(title)
+        outer_layout.addWidget(self.excel_table_view)
         outer_layout.addStretch()
         outer_layout.addLayout(card_layout)
         outer_layout.addStretch()
@@ -1464,41 +1474,41 @@ class MainWindow(QMainWindow):
 
     def create_and_show_table(self, table_name, column_defs, df):
         """Create table from DataFrame and display contents with enhanced UI"""
-        self.current_table = table_name
+        # self.current_table = table_name
 
         try:
-            # First, create the table in database if it doesn't exist
-            if hasattr(self, 'db_connection') and self.db_connection:
-                cursor = self.db_connection.cursor()
-
-                # Create table SQL
-                columns_sql = []
-                for col_name, col_type in column_defs.items():
-                    columns_sql.append(f'"{col_name}" {col_type}')
-
-                create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(columns_sql)})'
-                cursor.execute(create_table_sql)
-
-                # Insert DataFrame data into the table
-                df.to_sql(table_name, self.db_connection, if_exists='replace', index=False)
-                self.db_connection.commit()
-                cursor.close()
+            # # First, create the table in database if it doesn't exist
+            # if hasattr(self, 'db_connection') and self.db_connection:
+            #     cursor = self.db_connection.cursor()
+            #
+            #     # Create table SQL
+            #     columns_sql = []
+            #     for col_name, col_type in column_defs.items():
+            #         columns_sql.append(f'"{col_name}" {col_type}')
+            #
+            #     create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(columns_sql)})'
+            #     cursor.execute(create_table_sql)
+            #
+            #     # Insert DataFrame data into the table
+            #     df.to_sql(table_name, self.db_connection, if_exists='replace', index=False)
+            #     self.db_connection.commit()
+            #     cursor.close()
 
             # Get data from DataFrame for display
             columns = list(df.columns)
             rows = df.values.tolist()
 
             # Clear and configure table view with modern styling
-            self.table_view.clear()
-            self.table_view.setRowCount(len(rows))
-            self.table_view.setColumnCount(len(columns) + 1)
-            self.table_view.setHorizontalHeaderLabels(columns + ["Actions"])
+            self.excel_table_view.clear()
+            self.excel_table_view.setRowCount(len(rows))
+            self.excel_table_view.setColumnCount(len(columns) + 1)
+            self.excel_table_view.setHorizontalHeaderLabels(columns + ["Actions"])
 
             # Make table cells uneditable
-            self.table_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            self.excel_table_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
 
             # Enhanced table styling
-            self.table_view.setStyleSheet("""
+            self.excel_table_view.setStyleSheet("""
                 QTableWidget {
                     background-color: #ffffff;
                     border: 1px solid #e0e0e0;
@@ -1572,14 +1582,14 @@ class MainWindow(QMainWindow):
             """)
 
             # Enable word wrapping for all items
-            self.table_view.setWordWrap(True)
+            self.excel_table_view.setWordWrap(True)
 
             # Set row height to auto-adjust based on content
-            self.table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-            self.table_view.verticalHeader().setDefaultSectionSize(80)
+            self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            self.excel_table_view.verticalHeader().setDefaultSectionSize(80)
 
             # Set alternating row colors
-            self.table_view.setAlternatingRowColors(True)
+            self.excel_table_view.setAlternatingRowColors(True)
 
             # Clear existing filters
             while self.filter_layout.count():
@@ -1669,26 +1679,26 @@ class MainWindow(QMainWindow):
             self.filter_layout.addWidget(filter_container)
 
             # Configure columns
-            header = self.table_view.horizontalHeader()
-            self.table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            self.table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+            header = self.excel_table_view.horizontalHeader()
+            self.excel_table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.excel_table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
             # Set column widths based on number of columns
             if len(columns) <= 3:
                 for col in range(len(columns)):
                     header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                    self.table_view.setColumnWidth(col, 370)
+                    self.excel_table_view.setColumnWidth(col, 370)
                     header.setMaximumSectionSize(400)
                 action_column_width = 80
             else:
                 for col in range(len(columns)):
                     header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                    self.table_view.setColumnWidth(col, 200)
+                    self.excel_table_view.setColumnWidth(col, 200)
                     header.setMaximumSectionSize(300)
                 action_column_width = 210
 
             header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
-            self.table_view.setColumnWidth(len(columns), action_column_width)
+            self.excel_table_view.setColumnWidth(len(columns), action_column_width)
             header.setMinimumSectionSize(action_column_width)
 
             # Populate data with enhanced styling
@@ -1705,7 +1715,7 @@ class MainWindow(QMainWindow):
                     elif str(value).lower() in ['true', 'false', 'yes', 'no']:
                         item.setForeground(QColor("#4caf50" if str(value).lower() in ['true', 'yes'] else "#f44336"))
 
-                    self.table_view.setItem(row_idx, col_idx, item)
+                    self.excel_table_view.setItem(row_idx, col_idx, item)
 
                 # Enhanced action buttons
                 action_widget = QWidget()
@@ -1765,7 +1775,7 @@ class MainWindow(QMainWindow):
                 action_layout.addWidget(edit_btn)
                 action_layout.addWidget(delete_btn)
 
-                self.table_view.setCellWidget(row_idx, len(columns), action_widget)
+                self.excel_table_view.setCellWidget(row_idx, len(columns), action_widget)
 
             # Apply initial filters
             self.apply_filters()
@@ -1775,12 +1785,12 @@ class MainWindow(QMainWindow):
             shadow_effect.setBlurRadius(15)
             shadow_effect.setColor(QColor(0, 0, 0, 30))
             shadow_effect.setOffset(0, 2)
-            self.table_view.setGraphicsEffect(shadow_effect)
+            self.excel_table_view.setGraphicsEffect(shadow_effect)
 
         except Exception as e:
             QMessageBox.critical(self, "Table Creation Error", f"Failed to create and display table:\n{str(e)}")
-            if 'cursor' in locals():
-                cursor.close()
+            # if 'cursor' in locals():
+            #     cursor.close()
 
 
     def sanitize_column_name(self, col):
