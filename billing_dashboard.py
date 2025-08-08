@@ -1086,7 +1086,7 @@ class MainWindow(QMainWindow):
                 border: 2px solid #5aa0ff;
             }
         """)
-        self.load_data_card.clicked.connect(self.load_file)
+        self.load_data_card.clicked.connect(self.handle_custom_file_upload)
 
         # Add title and button to header layout
         header_layout.addWidget(title)
