@@ -1042,10 +1042,6 @@ class MainWindow(QMainWindow):
 
         return page
 
-    def load_file(self):
-        """Handle file upload without toggle functionality"""
-        self.handle_custom_file_upload()
-
     def create_spreadsheet_page(self):
         page = QWidget()
 
@@ -1054,7 +1050,7 @@ class MainWindow(QMainWindow):
         outer_layout.setContentsMargins(20, 20, 20, 20)
         outer_layout.setSpacing(20)
 
-        # Header layout - title on left, button on right
+        # Header layout - title on left, buttons on right
         header_layout = QHBoxLayout()
 
         # Title on extreme left
@@ -1062,9 +1058,8 @@ class MainWindow(QMainWindow):
         title.setStyleSheet("font-size: 18px; font-weight: bold;")
         title.setAlignment(Qt.AlignmentFlag.AlignLeft)
 
-        # Button on extreme right
-        self.load_data_card = QPushButton("📂Load Excel/CSV File")
-        self.load_data_card.setStyleSheet("""
+        # Shared button style
+        button_style = """
             QPushButton {
                 background-color: #ffffff;
                 border: 2px solid #d0d0d0;
@@ -1074,24 +1069,38 @@ class MainWindow(QMainWindow):
                 padding: 10px 20px;
                 color: #333;
             }
-
             QPushButton:hover {
                 background-color: #f2f9ff;
                 border: 2px solid #7cbfff;
                 color: #005999;
             }
-
             QPushButton:pressed {
                 background-color: #e6f0ff;
                 border: 2px solid #5aa0ff;
             }
-        """)
+        """
+
+        # Load Data button
+        self.load_data_card = QPushButton("📂 Load Excel/CSV File")
+        self.load_data_card.setStyleSheet(button_style)
         self.load_data_card.clicked.connect(self.handle_custom_file_upload)
 
-        # Add title and button to header layout
+        # Analyze button
+        self.analyze_button = QPushButton("📊 Analyze")
+        self.analyze_button.setStyleSheet(button_style)
+        self.analyze_button.clicked.connect(self.handle_analysis)
+
+        # Save to DB button
+        self.save_button = QPushButton("💾 Save to DB")
+        self.save_button.setStyleSheet(button_style)
+        self.save_button.clicked.connect(self.handle_save_to_db)
+
+        # Add title and buttons to header
         header_layout.addWidget(title)
-        header_layout.addStretch()  # Push button to right
+        header_layout.addStretch()
         header_layout.addWidget(self.load_data_card)
+        header_layout.addWidget(self.analyze_button)
+        header_layout.addWidget(self.save_button)
 
         # Table view section
         self.excel_table_view = QTableWidget()
@@ -1100,13 +1109,53 @@ class MainWindow(QMainWindow):
         self.excel_table_view.horizontalHeader().setStretchLastSection(True)
         self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.excel_table_view.setAlternatingRowColors(True)
+        self.excel_table_view.verticalHeader().setDefaultSectionSize(30)
+        self.excel_table_view.horizontalHeader().setSectionsMovable(False)
+        self.excel_table_view.verticalHeader().setVisible(False)
+
+        self.excel_table_view.setStyleSheet("""
+            QTableWidget {
+                background-color: #ffffff;
+                border: 1px solid #d0d0d0;
+                border-radius: 12px;
+                font-size: 12pt;
+                gridline-color: #e0e0e0;
+                selection-background-color: #cce6ff;
+                selection-color: #000000;
+                alternate-background-color: #f9f9f9;
+            }
+
+            QHeaderView::section {
+                background-color: #f2f9ff;
+                color: #005999;
+                padding: 10px;
+                border: 1px solid #d0d0d0;
+                font-weight: bold;
+                font-size: 13pt;
+            }
+
+            QTableWidget::item {
+                padding: 6px;
+            }
+
+            QTableWidget::item:hover {
+                background-color: #eaf6ff;
+            }
+        """)
 
         # Add components to main layout
-        outer_layout.addLayout(header_layout)  # Header with title and button
-        outer_layout.addWidget(self.excel_table_view)  # Table below
-        # outer_layout.addStretch()
+        outer_layout.addLayout(header_layout)
+        outer_layout.addWidget(self.excel_table_view)
 
         return page
+
+    def handle_analysis(self):
+        # Logic to analyze the uploaded DataFrame
+        pass
+
+    def handle_save_to_db(self):
+        # Logic to save the table to database
+        pass
 
     def get_card_style(self):
         """Returns the CSS style for card buttons"""
