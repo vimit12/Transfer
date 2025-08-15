@@ -25,7 +25,6 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
-from PyQt6.QtWidgets import QAbstractItemView
 
 # ======================
 # THEME DEFINITIONS
@@ -1615,12 +1614,6 @@ class MainWindow(QMainWindow):
 
     def _populate_table_fast(self, df, num_rows, num_cols):
         """Ultra-fast table population using batch operations."""
-        from PyQt6.QtWidgets import QTableWidgetItem
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtGui import QColor
-        import pandas as pd
-        import numpy as np
-
         # Pre-compute color mappings for reuse
         colors = {'positive': QColor("#2e7d32"), 'negative': QColor("#c62828"), 'zero': QColor("#1565c0"),
             'true': QColor("#2e7d32"), 'false': QColor("#c62828"), 'warning': QColor("#f57c00"),
@@ -1661,7 +1654,6 @@ class MainWindow(QMainWindow):
 
     def _format_cell_value(self, value):
         """Fast cell value formatting with minimal type checking."""
-        import pandas as pd
 
         # Handle None/NaN first (most common case)
         if pd.isna(value) or value is None:
@@ -1714,7 +1706,6 @@ class MainWindow(QMainWindow):
         try:
             self.excel_table_view.clear()
             # Add a single error message item
-            from PyQt6.QtWidgets import QTableWidgetItem
             self.excel_table_view.setRowCount(1)
             self.excel_table_view.setColumnCount(1)
             self.excel_table_view.setHorizontalHeaderLabels(['Error'])
