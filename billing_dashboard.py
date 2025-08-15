@@ -25,6 +25,7 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
+from PyQt6.QtWidgets import QAbstractItemView
 
 # ======================
 # THEME DEFINITIONS
@@ -1514,326 +1515,269 @@ class MainWindow(QMainWindow):
         dialog.exec()
 
     def create_and_show_table(self, table_name, column_defs, df):
-        """Create table from DataFrame and display contents with enhanced UI"""
-        # self.current_table = table_name
-
+        """Create and display a stylized table from a DataFrame with maximum efficiency."""
         try:
-            # # First, create the table in database if it doesn't exist
-            # if hasattr(self, 'db_connection') and self.db_connection:
-            #     cursor = self.db_connection.cursor()
-            #
-            #     # Create table SQL
-            #     columns_sql = []
-            #     for col_name, col_type in column_defs.items():
-            #         columns_sql.append(f'"{col_name}" {col_type}')
-            #
-            #     create_table_sql = f'CREATE TABLE IF NOT EXISTS "{table_name}" ({", ".join(columns_sql)})'
-            #     cursor.execute(create_table_sql)
-            #
-            #     # Insert DataFrame data into the table
-            #     df.to_sql(table_name, self.db_connection, if_exists='replace', index=False)
-            #     self.db_connection.commit()
-            #     cursor.close()
+            # Early exit for empty data
+            if df.empty:
+                self.excel_table_view.clear()
+                return
 
-            # Get data from DataFrame for display
-            columns = list(df.columns)
-            rows = df.values.tolist()
+            # Get data once and cache
+            columns = df.columns.tolist()
+            num_rows, num_cols = df.shape
 
-            # Clear and configure table view with modern styling
-            self.excel_table_view.clear()
-            self.excel_table_view.setRowCount(len(rows))
-            self.excel_table_view.setColumnCount(len(columns) + 1)
-            self.excel_table_view.setHorizontalHeaderLabels(columns + ["Actions"])
+            # Batch all UI updates
+            self.excel_table_view.setUpdatesEnabled(False)
+            self.excel_table_view.setSortingEnabled(False)
 
-            # Make table cells uneditable
-            self.excel_table_view.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+            try:
+                # Clear efficiently
+                self.excel_table_view.clearContents()
 
-            # Enhanced table styling
-            self.excel_table_view.setStyleSheet("""
-                QTableWidget {
-                    background-color: #ffffff;
-                    border: 1px solid #e0e0e0;
-                    border-radius: 8px;
-                    gridline-color: #f0f0f0;
-                    selection-background-color: #e3f2fd;
-                    font-size: 12px;
-                    font-family: 'Segoe UI', Arial, sans-serif;
-                }
-                QTableWidget::item {
-                    padding: 12px 8px;
-                    border-bottom: 1px solid #f5f5f5;
-                }
-                QTableWidget::item:selected {
-                    background-color: #e3f2fd;
-                    color: #1976d2;
-                }
-                QTableWidget::item:hover {
-                    background-color: #f8f9fa;
-                }
-                QHeaderView::section {
-                    background-color: #f8f9fa;
-                    color: #424242;
-                    font-weight: bold;
-                    font-size: 11px;
-                    text-transform: uppercase;
-                    letter-spacing: 0.5px;
-                    padding: 12px 8px;
-                    border: none;
-                    border-bottom: 2px solid #e0e0e0;
-                    border-right: 1px solid #e0e0e0;
-                }
-                QHeaderView::section:first {
-                    border-top-left-radius: 8px;
-                }
-                QHeaderView::section:last {
-                    border-top-right-radius: 8px;
-                    border-right: none;
-                }
-                QScrollBar:vertical {
-                    border: none;
-                    background: #f5f5f5;
-                    width: 12px;
-                    border-radius: 6px;
-                }
-                QScrollBar::handle:vertical {
-                    background: #c0c0c0;
-                    border-radius: 6px;
-                    min-height: 20px;
-                }
-                QScrollBar::handle:vertical:hover {
-                    background: #a0a0a0;
-                }
-                QScrollBar:horizontal {
-                    border: none;
-                    background: #f5f5f5;
-                    height: 12px;
-                    border-radius: 6px;
-                }
-                QScrollBar::handle:horizontal {
-                    background: #c0c0c0;
-                    border-radius: 6px;
-                    min-width: 20px;
-                }
-                QScrollBar::handle:horizontal:hover {
-                    background: #a0a0a0;
-                }
-                QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
-                    width: 0;
-                }
-            """)
+                # Set dimensions once
+                self.excel_table_view.setRowCount(num_rows)
+                self.excel_table_view.setColumnCount(num_cols)
+                self.excel_table_view.setHorizontalHeaderLabels(columns)
 
-            # Enable word wrapping for all items
-            self.excel_table_view.setWordWrap(True)
+                # Configure appearance (do this once, not per item)
+                self._configure_table_appearance()
 
-            # Set row height to auto-adjust based on content
-            self.excel_table_view.verticalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-            self.excel_table_view.verticalHeader().setDefaultSectionSize(80)
+                # Bulk populate using vectorized operations
+                self._populate_table_fast(df, num_rows, num_cols)
 
-            # Set alternating row colors
-            self.excel_table_view.setAlternatingRowColors(True)
-
-            # Clear existing filters
-            while self.filter_layout.count():
-                if child := self.filter_layout.takeAt(0):
-                    if widget := child.widget():
-                        widget.deleteLater()
-
-            # Enhanced filter section
-            filter_container = QWidget()
-            filter_container.setStyleSheet("""
-                QWidget {
-                    background-color: #f8f9fa;
-                    border-radius: 8px;
-                    margin: 4px;
-                    padding: 8px;
-                }
-            """)
-
-            # Create a grid layout for filters
-            filter_grid_layout = QGridLayout(filter_container)
-            filter_grid_layout.setSpacing(4)
-            filter_grid_layout.setContentsMargins(12, 8, 12, 8)
-
-            # Add filter label
-            filter_label = QLabel("🔍 Filters:")
-            filter_label.setStyleSheet("""
-                QLabel {
-                    color: #424242;
-                    font-weight: bold;
-                    font-size: 12px;
-                    background: none;
-                    padding: 0;
-                }
-            """)
-            filter_grid_layout.addWidget(filter_label, 0, 0, 1, len(columns) + 1)
-
-            # Add filter inputs aligned with columns
-            self.filter_inputs = []
-            for col_idx, col_name in enumerate(columns):
-                filter_edit = QLineEdit()
-                filter_edit.setPlaceholderText(col_name)
-                filter_edit.setStyleSheet("""
-                    QLineEdit {
-                        background-color: white;
-                        border: 2px solid #e0e0e0;
-                        border-radius: 6px;
-                        padding: 6px 8px;
-                        font-size: 10px;
-                        min-height: 20px;
-                    }
-                    QLineEdit:focus {
-                        border-color: #2196f3;
-                        background-color: #fafafa;
-                    }
-                    QLineEdit:hover {
-                        border-color: #bdbdbd;
-                    }
-                """)
-                filter_edit.textChanged.connect(self.apply_filters)
-                filter_grid_layout.addWidget(filter_edit, 1, col_idx)
-                self.filter_inputs.append(filter_edit)
-
-            # Add clear filters button
-            clear_filters_btn = QPushButton("✖️")
-            clear_filters_btn.setFixedSize(38, 38)
-            clear_filters_btn.setStyleSheet("""
-                QPushButton {
-                    background-color: #ff9800;
-                    color: white;
-                    border: none;
-                    border-radius: 14px;
-                    font-weight: bold;
-                    font-size: 12px;
-                }
-                QPushButton:hover {
-                    background-color: #f57c00;
-                }
-                QPushButton:pressed {
-                    background-color: #ef6c00;
-                }
-            """)
-            clear_filters_btn.setToolTip("Clear All Filters")
-            clear_filters_btn.clicked.connect(self.clear_all_filters)
-            filter_grid_layout.addWidget(clear_filters_btn, 1, len(columns))
-
-            # Add the filter container to the main layout
-            self.filter_layout.addWidget(filter_container)
-
-            # Configure columns
-            header = self.excel_table_view.horizontalHeader()
-            self.excel_table_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-            self.excel_table_view.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
-
-            # Set column widths based on number of columns
-            if len(columns) <= 3:
-                for col in range(len(columns)):
-                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                    self.excel_table_view.setColumnWidth(col, 370)
-                    header.setMaximumSectionSize(400)
-                action_column_width = 80
-            else:
-                for col in range(len(columns)):
-                    header.setSectionResizeMode(col, QHeaderView.ResizeMode.Interactive)
-                    self.excel_table_view.setColumnWidth(col, 200)
-                    header.setMaximumSectionSize(300)
-                action_column_width = 210
-
-            header.setSectionResizeMode(len(columns), QHeaderView.ResizeMode.Fixed)
-            self.excel_table_view.setColumnWidth(len(columns), action_column_width)
-            header.setMinimumSectionSize(action_column_width)
-
-            # Populate data with enhanced styling
-            for row_idx, row in enumerate(rows):
-                for col_idx, value in enumerate(row):
-                    # Handle pandas NaN values
-                    display_value = str(value) if value is not None and str(value) != 'nan' else ""
-                    item = QTableWidgetItem(display_value)
-                    item.setTextAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-
-                    # Add styling based on data type
-                    if isinstance(value, (int, float)) and str(value) != 'nan' and value != 0:
-                        item.setForeground(QColor("#1976d2"))
-                    elif str(value).lower() in ['true', 'false', 'yes', 'no']:
-                        item.setForeground(QColor("#4caf50" if str(value).lower() in ['true', 'yes'] else "#f44336"))
-
-                    self.excel_table_view.setItem(row_idx, col_idx, item)
-
-                # Enhanced action buttons
-                action_widget = QWidget()
-                action_widget.setStyleSheet("background-color: transparent;")
-                action_layout = QHBoxLayout(action_widget)
-                action_layout.setContentsMargins(2, 2, 2, 2)
-                action_layout.setSpacing(6)
-
-                # Edit button
-                edit_btn = QPushButton("🖋️Edit")
-                edit_btn.setFixedSize(28, 28)
-                edit_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #FFB300;
-                        color: white;
-                        border: none;
-                        border-radius: 14px;
-                        font-weight: bold;
-                        font-size: 12px;
-                        padding: 6px 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #FFA000;
-                    }
-                    QPushButton:pressed {
-                        background-color: #FF8F00;
-                    }
-                """)
-                edit_btn.setToolTip("Edit Record")
-                edit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                edit_btn.clicked.connect(lambda _, r=row, tn=table_name: self.open_edit_dialog(tn, r))
-
-                # Delete button
-                delete_btn = QPushButton("🗑️Delete")
-                delete_btn.setFixedSize(28, 28)
-                delete_btn.setStyleSheet("""
-                    QPushButton {
-                        background-color: #D32F2F;
-                        color: white;
-                        border: none;
-                        border-radius: 14px;
-                        font-weight: bold;
-                        font-size: 12px;
-                        padding: 6px 12px;
-                    }
-                    QPushButton:hover {
-                        background-color: #E53935;
-                    }
-                    QPushButton:pressed {
-                        background-color: #C62828;
-                    }
-                """)
-                delete_btn.setToolTip("Delete Record")
-                delete_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-                delete_btn.clicked.connect(lambda _, r=row, tn=table_name: self.delete_row(tn, r))
-
-                action_layout.addWidget(edit_btn)
-                action_layout.addWidget(delete_btn)
-
-                self.excel_table_view.setCellWidget(row_idx, len(columns), action_widget)
-
-            # Apply initial filters
-            self.apply_filters()
-
-            # Add drop shadow effect
-            shadow_effect = QGraphicsDropShadowEffect()
-            shadow_effect.setBlurRadius(15)
-            shadow_effect.setColor(QColor(0, 0, 0, 30))
-            shadow_effect.setOffset(0, 2)
-            self.excel_table_view.setGraphicsEffect(shadow_effect)
+            finally:
+                # Re-enable updates once at the end
+                self.excel_table_view.setUpdatesEnabled(True)
+                self.excel_table_view.setSortingEnabled(True)
 
         except Exception as e:
-            QMessageBox.critical(self, "Table Creation Error", f"Failed to create and display table:\n{str(e)}")
-            # if 'cursor' in locals():
-            #     cursor.close()
+            self._handle_table_error(e)
 
+    def _configure_table_appearance(self):
+        """Configure table appearance once - separated for clarity."""
+        table = self.excel_table_view
 
+        # Basic settings
+        table.setAlternatingRowColors(True)
+        table.setWordWrap(False)  # Disable word wrap for performance
+        table.setShowGrid(True)
+
+        # Headers
+        v_header = table.verticalHeader()
+        h_header = table.horizontalHeader()
+
+        # Use faster resize modes
+        from PyQt6.QtWidgets import QHeaderView
+        v_header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
+        v_header.setDefaultSectionSize(25)  # Fixed row height
+
+        # Set scroll policies
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtWidgets import QAbstractItemView
+        table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+        table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+
+        # Lightweight stylesheet - removed gradients and complex selectors
+        table.setStyleSheet("""
+            QTableWidget {
+                background-color: white;
+                border: 1px solid #ddd;
+                gridline-color: #f0f0f0;
+                selection-background-color: #e3f2fd;
+                font-size: 11px;
+                font-family: 'Segoe UI', Arial;
+            }
+            QTableWidget::item {
+                padding: 8px;
+                border: none;
+            }
+            QTableWidget::item:selected {
+                background-color: #e3f2fd;
+            }
+            QHeaderView::section {
+                background-color: #f8f9fa;
+                color: #495057;
+                font-weight: bold;
+                padding: 8px;
+                border: 1px solid #dee2e6;
+            }
+        """)
+
+        # Set column widths efficiently
+        total_cols = table.columnCount()
+        if total_cols <= 3:
+            default_width = 250
+        else:
+            default_width = 150
+
+        for col in range(total_cols):
+            table.setColumnWidth(col, default_width)
+
+    def _populate_table_fast(self, df, num_rows, num_cols):
+        """Ultra-fast table population using batch operations."""
+        from PyQt6.QtWidgets import QTableWidgetItem
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QColor
+        import pandas as pd
+        import numpy as np
+
+        # Pre-compute color mappings for reuse
+        colors = {'positive': QColor("#2e7d32"), 'negative': QColor("#c62828"), 'zero': QColor("#1565c0"),
+            'true': QColor("#2e7d32"), 'false': QColor("#c62828"), 'warning': QColor("#f57c00"),
+            'default': QColor("#2c3e50")}
+
+        # Pre-define alignment flags
+        align_right = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+        align_left = Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+        non_editable = Qt.ItemFlag.ItemIsSelectable | Qt.ItemFlag.ItemIsEnabled
+
+        # Process data by chunks for better memory usage
+        chunk_size = min(1000, num_rows)
+
+        for chunk_start in range(0, num_rows, chunk_size):
+            chunk_end = min(chunk_start + chunk_size, num_rows)
+
+            # Get chunk of data
+            chunk_data = df.iloc[chunk_start:chunk_end]
+
+            for local_row_idx, (_, row) in enumerate(chunk_data.iterrows()):
+                actual_row_idx = chunk_start + local_row_idx
+
+                for col_idx, value in enumerate(row):
+                    # Fast type checking and formatting
+                    item_text, color_key, alignment = self._format_cell_value(value)
+
+                    # Create item with pre-computed properties
+                    item = QTableWidgetItem(item_text)
+                    item.setTextAlignment(alignment)
+                    item.setFlags(non_editable)
+
+                    # Set color efficiently
+                    if color_key in colors:
+                        item.setForeground(colors[color_key])
+
+                    # Set item once
+                    self.excel_table_view.setItem(actual_row_idx, col_idx, item)
+
+    def _format_cell_value(self, value):
+        """Fast cell value formatting with minimal type checking."""
+        import pandas as pd
+
+        # Handle None/NaN first (most common case)
+        if pd.isna(value) or value is None:
+            return "", "default", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+
+        # Handle numeric types (use isinstance once)
+        if isinstance(value, (int, float, complex)):
+            if isinstance(value, bool):  # bool is subclass of int, check first
+                return "Yes" if value else "No", "true" if value else "false", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            elif isinstance(value, float):
+                if abs(value) < 1e-10:
+                    return "0.0000", "zero", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+                else:
+                    return f"{value:.4f}", "positive" if value > 0 else "negative", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+            else:  # int or complex
+                text = str(value)
+                if hasattr(value, 'real') and value != 0:  # complex or non-zero
+                    color = "positive" if (getattr(value, 'real', value) > 0) else "negative"
+                else:
+                    color = "zero"
+                return text, color, Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignRight
+
+        # Handle strings efficiently
+        elif isinstance(value, str):
+            if not value.strip():  # empty string
+                return "", "default", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+
+            # Fast string matching - check first character for speed
+            lower_val = value.lower().strip()
+            first_char = lower_val[0] if lower_val else ''
+
+            if first_char in 'ty' and lower_val in {'true', 'yes', 'y'}:
+                return value, "true", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            elif first_char in 'fn' and lower_val in {'false', 'no', 'n'}:
+                return value, "false", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            elif first_char == 'w' and 'warn' in lower_val:
+                return value, "warning", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+            else:
+                return value, "default", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+
+        # Fallback for other types
+        else:
+            return str(value), "default", Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft
+
+    def _handle_table_error(self, error):
+        """Lightweight error handling."""
+        print(f"Table Error: {error}")
+
+        # Simple fallback - just clear the table
+        try:
+            self.excel_table_view.clear()
+            # Add a single error message item
+            from PyQt6.QtWidgets import QTableWidgetItem
+            self.excel_table_view.setRowCount(1)
+            self.excel_table_view.setColumnCount(1)
+            self.excel_table_view.setHorizontalHeaderLabels(['Error'])
+            error_item = QTableWidgetItem(f"Error loading data: {str(error)}")
+            self.excel_table_view.setItem(0, 0, error_item)
+        except:
+            pass  # If even this fails, just leave it empty
+
+    # def setup_filter_row(self, columns):
+    #     filter_container = QWidget()
+    #     filter_layout = QGridLayout(filter_container)
+    #     filter_layout.setContentsMargins(12, 8, 12, 8)
+    #     filter_layout.setSpacing(6)
+    #
+    #     filter_label = QLabel("🔍 Filters:")
+    #     filter_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #424242;")
+    #     filter_layout.addWidget(filter_label, 0, 0, 1, len(columns))
+    #
+    #     self.filter_excel_inputs = []
+    #     for col_idx, col_name in enumerate(columns):
+    #         input_box = QLineEdit()
+    #         input_box.setPlaceholderText(col_name)
+    #         input_box.setStyleSheet("""
+    #             QLineEdit {
+    #                 border: 2px solid #e0e0e0;
+    #                 border-radius: 6px;
+    #                 padding: 6px;
+    #                 font-size: 11px;
+    #             }
+    #             QLineEdit:focus {
+    #                 border-color: #1976d2;
+    #                 background-color: #fafafa;
+    #             }
+    #         """)
+    #         input_box.textChanged.connect(self.apply_spreadsheet_filters)
+    #         self.filter_excel_inputs.append(input_box)
+    #         filter_layout.addWidget(input_box, 1, col_idx)
+    #
+    #     if hasattr(self, 'filter_layout'):
+    #         self.filter_layout.addWidget(filter_container)
+    #
+    # def apply_spreadsheet_filters(self):
+    #     """Filter the table based on values typed into the filter input fields."""
+    #     try:
+    #         for row in range(self.excel_table_view.rowCount()):
+    #             self.excel_table_view.setRowHidden(row, False)
+    #
+    #         for col_idx, filter_input in enumerate(self.filter_excel_inputs):
+    #             filter_text = filter_input.text().strip().lower()
+    #             if not filter_text:
+    #                 continue
+    #
+    #             for row in range(self.excel_table_view.rowCount()):
+    #                 item = self.excel_table_view.item(row, col_idx)
+    #                 if item is None:
+    #                     continue
+    #
+    #                 cell_text = item.text().strip().lower()
+    #                 if filter_text not in cell_text:
+    #                     self.excel_table_view.setRowHidden(row, True)
+    #
+    #     except Exception as e:
+    #         QMessageBox.warning(self, "Filter Error", f"An error occurred while filtering:\n{str(e)}")
     def sanitize_column_name(self, col):
         if not isinstance(col, str):
             col = str(col)
