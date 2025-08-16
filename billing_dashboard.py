@@ -1566,13 +1566,10 @@ class MainWindow(QMainWindow):
         h_header = table.horizontalHeader()
 
         # Use faster resize modes
-        from PyQt6.QtWidgets import QHeaderView
         v_header.setSectionResizeMode(QHeaderView.ResizeMode.Fixed)
         v_header.setDefaultSectionSize(25)  # Fixed row height
 
         # Set scroll policies
-        from PyQt6.QtCore import Qt
-        from PyQt6.QtWidgets import QAbstractItemView
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         table.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
 
