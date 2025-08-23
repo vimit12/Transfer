@@ -1089,6 +1089,7 @@ class MainWindow(QMainWindow):
         self.analyze_button = QPushButton("📊 Analyze")
         self.analyze_button.setStyleSheet(button_style)
         self.analyze_button.clicked.connect(self.handle_analysis)
+        self.analyze_button.setEnabled(False)
 
         # Save to DB button
         self.save_button = QPushButton("💾 Save to DB")
@@ -1150,8 +1151,290 @@ class MainWindow(QMainWindow):
         return page
 
     def handle_analysis(self):
-        # Logic to analyze the uploaded DataFrame
-        pass
+        """Popup dialog to map spreadsheet columns with DB table columns with enhanced UI."""
+        dialog = QDialog(self)
+        dialog.setWindowTitle("📊 Analyze & Map Data")
+        dialog.setMinimumSize(600, 400)
+
+        # Apply styling to the dialog
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #f8f9fa;
+                font-family: 'Segoe UI', sans-serif;
+            }
+            QLabel {
+                color: #2c3e50;
+                font-weight: 500;
+                margin-bottom: 5px;
+            }
+            QComboBox {
+                padding: 8px;
+                border: 1px solid #ced4da;
+                border-radius: 4px;
+                background-color: white;
+                min-height: 30px;
+            }
+            QComboBox:hover {
+                border-color: #80bdff;
+            }
+            QComboBox:focus {
+                border-color: #007bff;
+                box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            }
+            QGroupBox {
+                font-weight: bold;
+                border: 1px solid #dee2e6;
+                border-radius: 6px;
+                margin-top: 10px;
+                padding-top: 15px;
+                background-color: white;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                left: 10px;
+                padding: 0 5px;
+                color: #495057;
+            }
+            QPushButton {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 10px 20px;
+                font-weight: 500;
+                min-width: 120px;
+            }
+            QPushButton:hover {
+                background-color: #0069d9;
+            }
+            QPushButton:pressed {
+                background-color: #0062cc;
+            }
+        """)
+
+        main_layout = QVBoxLayout(dialog)
+        main_layout.setSpacing(15)
+        main_layout.setContentsMargins(20, 20, 20, 20)
+
+        # Header
+        header_label = QLabel("Map Spreadsheet Columns to Database")
+        header_label.setStyleSheet("font-size: 16px; font-weight: bold; color: #212529;")
+        main_layout.addWidget(header_label)
+
+        # Divider
+        divider = QFrame()
+        divider.setFrameShape(QFrame.Shape.HLine)
+        divider.setFrameShadow(QFrame.Shadow.Sunken)
+        divider.setStyleSheet("color: #dee2e6;")
+        main_layout.addWidget(divider)
+
+        # Mapping section in a group box
+        mapping_group = QGroupBox("Column Mapping")
+        mapping_layout = QVBoxLayout(mapping_group)
+        mapping_layout.setSpacing(12)
+        mapping_layout.setContentsMargins(15, 20, 15, 15)
+
+        # --- Mapping Table Dropdown ---
+        table_layout = QHBoxLayout()
+        table_label = QLabel("Mapping Table:")
+        table_label.setFixedWidth(180)
+        table_dropdown = QComboBox()
+        table_dropdown.addItems(self.all_tables_name)
+        table_layout.addWidget(table_label)
+        table_layout.addWidget(table_dropdown)
+        mapping_layout.addLayout(table_layout)
+
+        # --- DB Column Dropdown ---
+        db_col_layout = QHBoxLayout()
+        db_col_label = QLabel("Database Column:")
+        db_col_label.setFixedWidth(180)
+        db_col_dropdown = QComboBox()
+        db_col_layout.addWidget(db_col_label)
+        db_col_layout.addWidget(db_col_dropdown)
+        mapping_layout.addLayout(db_col_layout)
+
+        # --- Spreadsheet Column Dropdown ---
+        sheet_col_layout = QHBoxLayout()
+        sheet_col_label = QLabel("Spreadsheet Column:")
+        sheet_col_label.setFixedWidth(180)
+        sheet_col_dropdown = QComboBox()
+        if hasattr(self, 'spreadsheet_df') and self.spreadsheet_df is not None:
+            sheet_col_dropdown.addItems(self.spreadsheet_df.columns.tolist())
+        sheet_col_layout.addWidget(sheet_col_label)
+        sheet_col_layout.addWidget(sheet_col_dropdown)
+        mapping_layout.addLayout(sheet_col_layout)
+
+        main_layout.addWidget(mapping_group)
+
+        # Preview area
+        preview_group = QGroupBox("Preview")
+        preview_layout = QVBoxLayout(preview_group)
+        preview_text = QTextEdit()
+        preview_text.setReadOnly(True)
+        preview_text.setMaximumHeight(100)
+        preview_text.setStyleSheet("""
+            QTextEdit {
+                background-color: #f8f9fa;
+                border: 1px solid #dee2e6;
+                border-radius: 4px;
+                padding: 8px;
+            }
+        """)
+        preview_layout.addWidget(preview_text)
+        main_layout.addWidget(preview_group)
+
+        # Button area
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_btn = QPushButton("Cancel")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6c757d;
+            }
+            QPushButton:hover {
+                background-color: #5a6268;
+            }
+        """)
+        cancel_btn.clicked.connect(dialog.reject)
+
+        analyze_btn = QPushButton("Analyze & Save to DB")
+        analyze_btn.setIcon(QIcon.fromTheme("document-save"))
+
+        button_layout.addWidget(cancel_btn)
+        button_layout.addWidget(analyze_btn)
+        main_layout.addLayout(button_layout)
+
+        # --- Helper: Fetch columns for a table ---
+        def get_columns_for_table(table_name: str):
+            """Fetch column names for the selected DB table."""
+            try:
+                query = f"PRAGMA table_info({table_name});"  # works for SQLite
+                cursor = self.db_connection.cursor()
+                cursor.execute(query)
+                cols = [row[1] for row in cursor.fetchall()]
+                return cols
+            except Exception as e:
+                print(f"Error fetching columns for {table_name}: {e}")
+                return []
+
+        # --- Update preview when selections change ---
+        def update_preview():
+            selected_table = table_dropdown.currentText()
+            selected_db_col = db_col_dropdown.currentText()
+            selected_sheet_col = sheet_col_dropdown.currentText()
+
+            preview_text.setText(f"Table: {selected_table}\n"
+                                 f"Database Column: {selected_db_col}\n"
+                                 f"Spreadsheet Column: {selected_sheet_col}\n\n"
+                                 f"Mapping: {selected_sheet_col} → {selected_db_col} in {selected_table}")
+
+        # --- Logic: Update DB column dropdown when table changes ---
+        def update_db_columns(selected_table):
+            columns = get_columns_for_table(selected_table)
+            db_col_dropdown.clear()
+            db_col_dropdown.addItems(columns)
+            update_preview()
+
+        table_dropdown.currentTextChanged.connect(update_db_columns)
+        db_col_dropdown.currentTextChanged.connect(update_preview)
+        sheet_col_dropdown.currentTextChanged.connect(update_preview)
+
+        # Initialize with first table's columns
+        if self.all_tables_name:
+            update_db_columns(self.all_tables_name[0])
+
+        # --- Analyze Button Click ---
+        def run_analysis():
+            selected_table = table_dropdown.currentText()
+            selected_db_col = db_col_dropdown.currentText()
+            selected_sheet_col = sheet_col_dropdown.currentText()
+
+            # Show processing indicator
+            analyze_btn.setText("Processing...")
+            analyze_btn.setEnabled(False)
+            QApplication.processEvents()  # Force UI update
+
+            try:
+                # Example: Save mapping info to DB (you can customize this)
+                self.save_mapping(selected_table, selected_db_col, selected_sheet_col, self.spreadsheet_df)
+
+                QMessageBox.information(dialog, "Success",
+                    f"Successfully mapped {selected_sheet_col} to {selected_db_col} in {selected_table}")
+                dialog.accept()
+            except Exception as e:
+                QMessageBox.critical(dialog, "Error", f"Failed to save mapping:\n{str(e)}")
+                analyze_btn.setText("Analyze & Save to DB")
+                analyze_btn.setEnabled(True)
+
+        analyze_btn.clicked.connect(run_analysis)
+
+        dialog.exec()
+
+    def save_mapping(self, table_name, db_col, sheet_col, df, threshold=60):
+        """
+        Compare values from spreadsheet column with DB column in the selected table
+        using coverage_percentage. Return matches and unmatched lists.
+
+        :return: (matches, unmatched)
+                 matches   -> [(sheet_value, db_value, coverage%), ...]
+                 unmatched -> [(sheet_value, best_db_value, best_coverage%), ...]
+        """
+        matches = []
+        unmatched = []
+
+        try:
+            cursor = self.db_connection.cursor()
+
+            # Get unique values from spreadsheet column
+            sheet_values = df[sheet_col].dropna().unique().tolist()
+
+            # Fetch all values from the DB column (once for efficiency)
+            cursor.execute(f"SELECT DISTINCT {db_col} FROM {table_name}")
+            db_values = [row[0] for row in cursor.fetchall() if row[0] is not None]
+
+            # --- Find if "521" column exists in the table ---
+            cursor.execute(f"PRAGMA table_info({table_name})")  # SQLite schema fetch
+            table_info = cursor.fetchall()
+            id_521_col = None
+            for col in table_info:
+                if "521" in col[1]:  # col[1] = column name
+                    id_521_col = col[1]
+                    break
+
+            for s_val in sheet_values:
+                # Get the row indices where the column matches s_val
+                matching_indices = df.index[df[sheet_col] == s_val].tolist()
+
+                best_match = None
+                best_score = 0
+
+                for db_val in db_values:
+                    score = coverage_percentage(str(s_val), str(db_val))
+                    if score > best_score:
+                        best_score = score
+                        best_match = db_val
+
+                if best_score >= threshold:
+                    # --- If ID_521 exists, fetch it for the matched db_val ---
+                    id_521_val = None
+                    if id_521_col:
+                        cursor.execute(f"SELECT {id_521_col} FROM {table_name} WHERE {db_col} = ? LIMIT 1", (best_match,))
+                        res = cursor.fetchone()
+                        if res:
+                            id_521_val = res[0]
+                            df.loc[matching_indices, f'{id_521_col}'] = f"{id_521_val}"
+                    matches.append((s_val, best_match, round(best_score, 2)))
+                else:
+                    df.loc[matching_indices, f'{id_521_col}'] = f"{None}"
+                    unmatched.append((s_val, best_match, round(best_score, 2)))
+
+            cursor.close()
+
+        except Exception as e:
+            print(f"Error in save_mapping: {e}")
+
+        return matches, unmatched
 
     def handle_save_to_db(self):
         # Logic to save the table to database
@@ -1482,6 +1765,7 @@ class MainWindow(QMainWindow):
 
         def on_submit():
             table_name = table_name_input.text().strip()
+            self.spreadsheet_table_name = table_name
 
             if not is_valid_table_name(table_name):
                 # Show error message box
@@ -1524,6 +1808,10 @@ class MainWindow(QMainWindow):
             # Get data once and cache
             columns = df.columns.tolist()
             num_rows, num_cols = df.shape
+            self.analyze_button.setEnabled(True)
+            self.spreadsheet_table_name = table_name
+            self.spreadsheet_df = df
+            self.column_defs = column_defs
 
             # Batch all UI updates
             self.excel_table_view.setUpdatesEnabled(False)
