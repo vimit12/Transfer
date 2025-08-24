@@ -1,71 +1,55 @@
-#windows-curses
-# Import necessary modules
-from colorama import init, Fore, Back, Style
-from termcolor import colored
-from blessed import Terminal
-from tqdm import tqdm
-from loguru import logger
-from pygments import highlight
-from pygments.lexers import PythonLexer
-from pygments.formatters import TerminalFormatter
-from pyfiglet import Figlet
-import time
-import curses
+import pandas as pd
+import dash
+import calendar
+df = pd.read_csv("sample_output.csv")
+# df.columns.tolist()[1:]
+# df.loc[1]
+# Find column that has "521" in its name
+col_521 = [col for col in df.columns if "521" in col][0]
 
-# Initialize colorama
-init()
+# Group by that column
+grouped = df.groupby(col_521)
 
-# 1. Colorama Example
-print("\n=== Colorama Example ===")
-print(Fore.RED + 'This text is red')
-print(Back.GREEN + 'This text has a green background')
-print(Style.BRIGHT + 'This text is bright')
-print(Style.RESET_ALL + 'Back to normal')
+# Example: get group sizes
+# print(grouped.size())
 
-# 2. Termcolor Example
-print("\n=== Termcolor Example ===")
-print(colored('Hello, World!', 'red', attrs=['bold']))
-print(colored('Python is fun!', 'green', attrs=['underline']))
+for group_name, group_df in grouped:
+    print("Group:", group_name)
 
-# 3. Blessed Example
-print("\n=== Blessed Example ===")
-term = Terminal()
-print(term.bold_red('Bold and red text'))
-print(term.underline('Underlined text'))
+    # Convert dates
+    group_df['Start Date'] = pd.to_datetime(group_df['Start Date'])
+    group_df['End Date'] = pd.to_datetime(group_df['End Date'])
 
-# 4. TQDM Example
-print("\n=== TQDM Example ===")
-for i in tqdm(range(10)):
-    time.sleep(0.1)
+    # Sort by start date
+    group_df = group_df.sort_values(by='Start Date')
 
-# 5. Loguru Example
-print("\n=== Loguru Example ===")
-logger.info("This is an info message")
-logger.error("This is an error message")
+    # Dictionary to store leave dates per (year, month)
+    month_year_leave_dates = {}
 
-# 6. Pygments Example
-print("\n=== Pygments Example ===")
-code = 'print("Hello, World!")'
-print(highlight(code, PythonLexer(), TerminalFormatter()))
+    for _, row in group_df.iterrows():
+        start = row['Start Date']
+        end = row['End Date']
+        all_dates = pd.date_range(start, end)
+        workdays = all_dates[~all_dates.weekday.isin([5, 6])]  # Exclude weekends
 
-# 7. PyFiglet Example
-print("\n=== PyFiglet Example ===")
-f = Figlet(font='slant')
-print(f.renderText('Hello!'))
+        for d in workdays:
+            key = (d.year, d.month)
+            if key in month_year_leave_dates:
+                month_year_leave_dates[key].add(d)
+            else:
+                month_year_leave_dates[key] = {d}
 
-# 8. Curses Example
-print("\n=== Curses Example ===")
+    # Print summary per (year, month)
+    for (year, month), dates in sorted(month_year_leave_dates.items()):
+        dates_sorted = sorted(list(dates))
+        dates_str = [d.strftime("%A, %B %d, %Y") for d in dates_sorted]
+        month_name = dates_sorted[0].strftime("%B")
 
-def curses_example(stdscr):
-    stdscr.clear()
-    stdscr.addstr(0, 0, "Hello, Curses!")
-    stdscr.refresh()
-    stdscr.getkey()
+        # Calculate total working days in the month
+        num_days_in_month = calendar.monthrange(year, month)[1]
+        all_days_in_month = pd.date_range(start=f"{year}-{month:02d}-01", end=f"{year}-{month:02d}-{num_days_in_month}")
+        total_working_days = len(all_days_in_month[~all_days_in_month.weekday.isin([5, 6])])
 
-# Note: The curses example needs to be executed in a real terminal.
-try:
-    curses.wrapper(curses_example)
-except curses.error:
-    print("Curses example must be run in a real terminal.")
-
-print("\n=== End of Script ===")
+        print(
+            f"Group Name: {group_name}, Month: {month_name}, Year: {year}, Leave Taken Days: {len(dates_sorted)}, Dates of Leave: {dates_str}, Total Working Days: {total_working_days}")
+        break

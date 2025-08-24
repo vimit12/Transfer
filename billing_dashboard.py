@@ -1,5 +1,4 @@
 import copy
-import sys
 from collections import Counter
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout, QPushButton,
                              QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
@@ -25,6 +24,17 @@ from openpyxl import load_workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 import numpy as np
 from pandas._libs.tslibs.nattype import NaTType
+import threading
+import dash
+from dash import html, dcc
+import plotly.express as px
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+# from PyQt6.QtWebEngineCore import QWebEngineSettings
+from PyQt6.QtCore import QUrl
+import sys
+os.environ["QT_MAC_WANTS_LAYER"] = "0"
+# Suppress macOS layer-backing warnings
+os.environ["QT_LOGGING_RULES"] = "qt.qpa.*=false"
 
 # ======================
 # THEME DEFINITIONS
@@ -1087,9 +1097,15 @@ class MainWindow(QMainWindow):
 
         # Analyze button
         self.analyze_button = QPushButton("📊 Analyze")
-        self.analyze_button.setStyleSheet(button_style)
+        # self.analyze_button.setStyleSheet(button_style)
         self.analyze_button.clicked.connect(self.handle_analysis)
         self.analyze_button.setEnabled(False)
+        self.analyze_button.setStyleSheet(button_style + """
+                                    QPushButton {
+                                        background-color: #bdc3c7;  /* grey */
+                                        color: #7f8c8d;             /* darker grey */
+                                    }
+                                """)
 
         # Save to DB button
         self.save_button = QPushButton("💾 Save to DB")
@@ -1433,8 +1449,57 @@ class MainWindow(QMainWindow):
 
         except Exception as e:
             print(f"Error in save_mapping: {e}")
+            # Create a summary DataFrame for plotting
+
+        # df.to_csv("sample_output.csv")
+        # summary_df = pd.DataFrame(
+        #     {'Sheet Value': [m[0] for m in matches + unmatched], 'DB Match': [m[1] for m in matches + unmatched],
+        #         'Score': [m[2] for m in matches + unmatched],
+        #         'Status': ['Match' if m in matches else 'Unmatched' for m in matches + unmatched]})
+        #
+        # # Call dashboard function
+        # self.show_dashboard(summary_df, table_name, db_col, sheet_col, df,)
 
         return matches, unmatched
+
+    def show_dashboard(self, summary_df, table_name, db_col, sheet_col, df,):
+
+        # --- Create Dash app ---
+        dash_app = dash.Dash(__name__)
+
+        # Pie chart: Match vs Unmatched
+        pie_fig = px.pie(summary_df.groupby('Status').size().reset_index(name='Count'), names='Status', values='Count',
+            title='Matches vs Unmatched')
+
+        # Bar chart: Coverage scores
+        bar_fig = px.bar(summary_df, x='Sheet Value', y='Score', color='Status', title='Coverage Scores')
+
+        dash_app.layout = html.Div(
+            [html.H1("Column Mapping Dashboard", style={'textAlign': 'center'}), dcc.Graph(figure=pie_fig),
+                dcc.Graph(figure=bar_fig)])
+
+        # --- Run Dash in a separate thread ---
+        def run_dash():
+            dash_app.run(port=8050, debug=False, use_reloader=False)
+
+        thread = threading.Thread(target=run_dash)
+        thread.daemon = True
+        thread.start()
+
+        # --- PyQt5 Dialog ---
+        app = QApplication.instance() or QApplication(sys.argv)
+        dialog = QDialog()
+        dialog.setWindowTitle("Mapping Dashboard")
+        dialog.resize(900, 700)
+
+        layout = QVBoxLayout(dialog)
+
+        web_view = QWebEngineView()
+        web_view.setUrl(QUrl("http://127.0.0.1:8050"))
+        layout.addWidget(web_view)
+
+        dialog.setLayout(layout)
+        dialog.exec()  # modal dialog; blocks until closed
 
     def handle_save_to_db(self):
         # Logic to save the table to database
@@ -1765,7 +1830,6 @@ class MainWindow(QMainWindow):
 
         def on_submit():
             table_name = table_name_input.text().strip()
-            self.spreadsheet_table_name = table_name
 
             if not is_valid_table_name(table_name):
                 # Show error message box
@@ -1808,7 +1872,49 @@ class MainWindow(QMainWindow):
             # Get data once and cache
             columns = df.columns.tolist()
             num_rows, num_cols = df.shape
-            self.analyze_button.setEnabled(True)
+            required_columns = {'Number', 'Opened By', 'Leave Type', 'Start Date', 'End Date', 'Status', 'Created'}
+
+            base_style = """
+                        QPushButton {
+                            background-color: #ffffff;
+                            border: 2px solid #d0d0d0;
+                            border-radius: 16px;
+                            font-size: 14pt;
+                            font-weight: 500;
+                            padding: 10px 20px;
+                            color: #333;
+                        }
+                        QPushButton:hover {
+                            background-color: #f2f9ff;
+                            border: 2px solid #7cbfff;
+                            color: #005999;
+                        }
+                        QPushButton:pressed {
+                            background-color: #e6f0ff;
+                            border: 2px solid #5aa0ff;
+                        }
+                    """
+
+            if set(columns) == required_columns:
+                self.analyze_button.setEnabled(True)
+                self.analyze_button.setStyleSheet(base_style + """
+                    QPushButton {
+                        background-color: #3498db;
+                        color: white;
+                    }
+                    QPushButton:hover:enabled {
+                        background-color: #2980b9;
+                    }
+                """)
+            else:
+                self.analyze_button.setEnabled(False)
+                self.analyze_button.setStyleSheet(base_style + """
+                    QPushButton {
+                        background-color: #bdc3c7;  /* grey */
+                        color: #7f8c8d;             /* darker grey */
+                    }
+                """)
+
             self.spreadsheet_table_name = table_name
             self.spreadsheet_df = df
             self.column_defs = column_defs
