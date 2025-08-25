@@ -32,7 +32,8 @@ from PyQt6.QtWebEngineWidgets import QWebEngineView
 # from PyQt6.QtWebEngineCore import QWebEngineSettings
 from PyQt6.QtCore import QUrl
 import sys
-os.environ["QT_MAC_WANTS_LAYER"] = "0"
+
+# os.environ["QT_MAC_WANTS_LAYER"] = "0"
 # Suppress macOS layer-backing warnings
 os.environ["QT_LOGGING_RULES"] = "qt.qpa.*=false"
 
@@ -1452,13 +1453,13 @@ class MainWindow(QMainWindow):
             # Create a summary DataFrame for plotting
 
         # df.to_csv("sample_output.csv")
-        # summary_df = pd.DataFrame(
-        #     {'Sheet Value': [m[0] for m in matches + unmatched], 'DB Match': [m[1] for m in matches + unmatched],
-        #         'Score': [m[2] for m in matches + unmatched],
-        #         'Status': ['Match' if m in matches else 'Unmatched' for m in matches + unmatched]})
-        #
-        # # Call dashboard function
-        # self.show_dashboard(summary_df, table_name, db_col, sheet_col, df,)
+        summary_df = pd.DataFrame(
+            {'Sheet Value': [m[0] for m in matches + unmatched], 'DB Match': [m[1] for m in matches + unmatched],
+             'Score': [m[2] for m in matches + unmatched],
+             'Status': ['Match' if m in matches else 'Unmatched' for m in matches + unmatched]})
+
+        # Call dashboard function
+        self.show_dashboard(summary_df, table_name, db_col, sheet_col, df, )
 
         return matches, unmatched
 
