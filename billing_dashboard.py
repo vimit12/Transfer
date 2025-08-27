@@ -1,42 +1,42 @@
-import copy
-from collections import Counter
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout, QPushButton,
-                             QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit, QGraphicsDropShadowEffect,
-                             QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView, QDialog, QProgressBar, QMessageBox,
-                             QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox, QPlainTextEdit, QScrollArea,
-                             QAbstractItemView)
-from PyQt6.QtGui import QFont, QIcon, QColor
-from PyQt6 import QtCore
-from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer
-import sqlite3
-from openpyxl import Workbook
-from pandas._libs.tslibs.timestamps import Timestamp
-from openpyxl.utils import get_column_letter
-from datetime import datetime
-import itertools
+# Standard library
+import sys
 import os
 import re
-from dateutil.parser import parse
-from openpyxl import load_workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-import numpy as np
-from pandas._libs.tslibs.nattype import NaTType
-
-from PyQt6.QtWebEngineWidgets import QWebEngineView
-# from PyQt6.QtWebEngineCore import QWebEngineSettings
-from PyQt6.QtCore import QUrl
-import calendar
-import sys
-import threading
 import json
+import threading
+import calendar
+import itertools
+import sqlite3
+from datetime import datetime
+from collections import Counter
+import copy
+
+# Third-party
 import pandas as pd
+import numpy as np
+from dateutil.parser import parse
+from openpyxl import Workbook, load_workbook
+from openpyxl.utils import get_column_letter
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+
+# PyQt6
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QStackedWidget, QTableWidget, QGridLayout,
+    QPushButton, QLabel, QVBoxLayout, QTableWidgetItem, QFileDialog, QTextEdit,
+    QGraphicsDropShadowEffect, QFrame, QLineEdit, QComboBox, QFormLayout, QHeaderView,
+    QDialog, QProgressBar, QMessageBox, QSizePolicy, QHBoxLayout, QSpacerItem, QGroupBox,
+    QPlainTextEdit, QScrollArea, QAbstractItemView
+)
+from PyQt6.QtGui import QFont, QIcon, QColor
+from PyQt6.QtCore import Qt, QDate, QDateTime, QTimer, QUrl
+from PyQt6.QtWebEngineWidgets import QWebEngineView
+
+# Dash + Plotly
 import dash
 import dash_bootstrap_components as dbc
 from dash import html, dcc, Input, Output, State, dash_table
 import plotly.express as px
 import plotly.graph_objects as go
-
-from PyQt6.QtWidgets import QApplication, QMessageBox
 
 # os.environ["QT_MAC_WANTS_LAYER"] = "0"
 # Suppress macOS layer-backing warnings
@@ -1001,7 +1001,8 @@ class MainWindow(QMainWindow):
 
             # Update database page with table list
             cursor.execute("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;")
-            all_tables = [table[0] for table in cursor.fetchall() if table[0].lower() != 'sqlite_sequence']
+            all_tables = [table[0] for table in cursor.fetchall() if table[0].lower() not in ['sqlite_sequence',
+                                                                                              'imported_files_metadata']]
             self.all_tables_name = copy.deepcopy(all_tables)
             # Update dropdown
             self.db_table_combo.clear()
@@ -4243,7 +4244,7 @@ class MainWindow(QMainWindow):
         self.export_btn = QPushButton("📤 Export Records")
         self.export_btn.setFixedHeight(40)
         self.export_btn.clicked.connect(self.export_record)
-        self.export_btn.setEnabled(True)
+        self.export_btn.setEnabled(False)
         db_control_layout.addWidget(self.export_btn)
 
         # Delete Table button
