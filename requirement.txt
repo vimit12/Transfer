@@ -13,3 +13,31 @@ plotly==5.20.0
 
 # Optional for PNG export of charts
 kaleido==0.2.1
+
+
+python -m nuitka --onefile --windows-disable-console --enable-plugin=qt-plugins --include-data-dir=assets=assets --follow-imports billing_dashboard.py
+
+pyinstaller --onefile --noconsole --add-data "assets;assets" billing_dashboard.py
+pyinstaller --onefile --noconsole --icon="icon.ico" --add-data "assets;assets" billing_dashboard.py
+pyinstaller --onefile --noconsole --clean --add-data "assets;assets" --exclude-module tkinter --exclude-module tests billing_dashboard.py
+
+1️⃣ PyInstaller + UPX (best for compression)
+	1.	Install UPX: https://upx.github.io/ and make sure upx.exe is in your PATH.
+	2.	Build with PyInstaller:
+	pyinstaller --noconsole --onefile --add-data "assets;assets" --upx-dir C:\path\to\upx billing_dashboard.py
+		•	--upx-dir points to UPX binary location.
+	•	UPX compresses the EXE, often reducing size by 40–60%.
+
+Pros: Very simple, single EXE, compressed.
+Cons: Some antivirus programs may flag heavily compressed EXEs.
+
+
+2️⃣ Nuitka + UPX
+	•	Nuitka can produce .exe and then you can compress with UPX:
+	python -m nuitka --onefile --windows-disable-console --enable-plugin=qt-plugins --include-data-dir=assets=assets --follow-imports billing_dashboard.py
+upx --best --lzma billing_dashboard.exe
+
+	•	--best --lzma is UPX’s maximum compression mode.
+
+Pros: Smallest, fastest EXE.
+Cons: Might fail on very complex dependencies; debugging harder.
