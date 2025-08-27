@@ -35,7 +35,7 @@ import sys
 
 # os.environ["QT_MAC_WANTS_LAYER"] = "0"
 # Suppress macOS layer-backing warnings
-os.environ["QT_LOGGING_RULES"] = "qt.qpa.*=false"
+# os.environ["QT_LOGGING_RULES"] = "qt.qpa.*=false"
 
 # ======================
 # THEME DEFINITIONS
@@ -1419,6 +1419,16 @@ class MainWindow(QMainWindow):
                     id_521_col = col[1]
                     break
 
+            # --- Fetch holiday data for all years in df ---
+            holiday_map = {}  # {year: [list of holiday strings]}
+
+            cursor.execute("SELECT year, holidays FROM holiday")
+            for year, holidays_json in cursor.fetchall():
+                try:
+                    holiday_map[year] = json.loads(holidays_json)
+                except Exception:
+                    holiday_map[year] = []
+
             for s_val in sheet_values:
                 # Get the row indices where the column matches s_val
                 matching_indices = df.index[df[sheet_col] == s_val].tolist()
@@ -1446,6 +1456,24 @@ class MainWindow(QMainWindow):
                     df.loc[matching_indices, f'{id_521_col}'] = f"{None}"
                     unmatched.append((s_val, best_match, round(best_score, 2)))
 
+                # # --- Attach holiday info for each row in df ---
+                # for idx in matching_indices:
+                #     year = df.at[idx, 'Year']
+                #     month = df.at[idx, 'Month']
+                #     month_num = datetime.strptime(month, "%B").month if isinstance(month, str) else int(month)
+                #
+                #     month_holidays = []
+                #     for h in holiday_map.get(year, []):
+                #         try:
+                #             dt = datetime.strptime(h, "%d-%m-%Y")
+                #             if dt.year == int(year) and dt.month == month_num:
+                #                 month_holidays.append(dt.strftime("%A, %B %d, %Y"))
+                #         except Exception:
+                #             continue
+                #
+                #     df.at[idx, 'Holiday'] = ", ".join(month_holidays) if month_holidays else None
+
+            self.analyze_df(df, holiday_map)
             cursor.close()
 
         except Exception as e:
@@ -1453,54 +1481,130 @@ class MainWindow(QMainWindow):
             # Create a summary DataFrame for plotting
 
         # df.to_csv("sample_output.csv")
-        summary_df = pd.DataFrame(
-            {'Sheet Value': [m[0] for m in matches + unmatched], 'DB Match': [m[1] for m in matches + unmatched],
-             'Score': [m[2] for m in matches + unmatched],
-             'Status': ['Match' if m in matches else 'Unmatched' for m in matches + unmatched]})
+        # summary_df = pd.DataFrame(
+        #     {'Sheet Value': [m[0] for m in matches + unmatched], 'DB Match': [m[1] for m in matches + unmatched],
+        #      'Score': [m[2] for m in matches + unmatched],
+        #      'Status': ['Match' if m in matches else 'Unmatched' for m in matches + unmatched]})
 
         # Call dashboard function
-        self.show_dashboard(summary_df, table_name, db_col, sheet_col, df, )
+        # self.show_dashboard(summary_df, table_name, db_col, sheet_col, df, )
 
         return matches, unmatched
 
-    def show_dashboard(self, summary_df, table_name, db_col, sheet_col, df,):
+    def analyze_df(self, df, holiday_map):
 
-        # --- Create Dash app ---
-        dash_app = dash.Dash(__name__)
+        col_521 = [col for col in df.columns if "521" in col][0]
+        grouped = df.groupby(col_521)
 
-        # Pie chart: Match vs Unmatched
-        pie_fig = px.pie(summary_df.groupby('Status').size().reset_index(name='Count'), names='Status', values='Count',
-            title='Matches vs Unmatched')
+        output_list = []
 
-        # Bar chart: Coverage scores
-        bar_fig = px.bar(summary_df, x='Sheet Value', y='Score', color='Status', title='Coverage Scores')
+        for group_name, group_df in grouped:
+            # Convert dates
+            group_df['Start Date'] = pd.to_datetime(group_df['Start Date'])
+            group_df['End Date'] = pd.to_datetime(group_df['End Date'])
 
-        dash_app.layout = html.Div(
-            [html.H1("Column Mapping Dashboard", style={'textAlign': 'center'}), dcc.Graph(figure=pie_fig),
-                dcc.Graph(figure=bar_fig)])
+            # Sort by start date
+            group_df = group_df.sort_values(by='Start Date')
 
-        # --- Run Dash in a separate thread ---
-        def run_dash():
-            dash_app.run(port=8050, debug=False, use_reloader=False)
+            # Dictionary to store leave dates per (year, month)
+            month_year_leave_dates = {}
 
-        thread = threading.Thread(target=run_dash)
-        thread.daemon = True
-        thread.start()
+            # Store Full Name for the group
+            full_name = group_df['Opened By'].iloc[0]
 
-        # --- PyQt5 Dialog ---
-        app = QApplication.instance() or QApplication(sys.argv)
-        dialog = QDialog()
-        dialog.setWindowTitle("Mapping Dashboard")
-        dialog.resize(900, 700)
+            for _, row in group_df.iterrows():
+                start = row['Start Date']
+                end = row['End Date']
+                all_dates = pd.date_range(start, end)
+                workdays = all_dates[~all_dates.weekday.isin([5, 6])]  # Exclude weekends
 
-        layout = QVBoxLayout(dialog)
+                for d in workdays:
+                    key = (d.year, d.month)
+                    if key in month_year_leave_dates:
+                        month_year_leave_dates[key].add(d)
+                    else:
+                        month_year_leave_dates[key] = {d}
 
-        web_view = QWebEngineView()
-        web_view.setUrl(QUrl("http://127.0.0.1:8050"))
-        layout.addWidget(web_view)
+            # Create dictionary per month
+            for (year, month), dates in sorted(month_year_leave_dates.items()):
+                dates_sorted = sorted(list(dates))
+                dates_str = [d.strftime("%A, %B %d, %Y") for d in dates_sorted]
+                month_name = dates_sorted[0].strftime("%B")
 
-        dialog.setLayout(layout)
-        dialog.exec()  # modal dialog; blocks until closed
+                # Calculate total working days in the month
+                num_days_in_month = calendar.monthrange(year, month)[1]
+                all_days_in_month = pd.date_range(start=f"{year}-{month:02d}-01",
+                                                  end=f"{year}-{month:02d}-{num_days_in_month}")
+                total_working_days = len(all_days_in_month[~all_days_in_month.weekday.isin([5, 6])])
+
+                # --- Get holidays for this month/year ---
+                holidays_this_month = []
+                for h in holiday_map.get(str(year), []):
+                    try:
+                        dt = datetime.strptime(h, "%d-%m-%Y")
+                        if dt.year == year and dt.month == month:
+                            holidays_this_month.append(dt.strftime("%A, %B %d, %Y"))
+                    except Exception:
+                        continue
+
+                # Exclude holidays from billable days
+                holiday_weekdays = [datetime.strptime(h, "%d-%m-%Y") for h in holiday_map.get(str(year), []) if
+                    datetime.strptime(h, "%d-%m-%Y").year == year and datetime.strptime(h,
+                                                                                        "%d-%m-%Y").month == month and datetime.strptime(
+                        h, "%d-%m-%Y").weekday() not in [5, 6]  # not Sat/Sun
+                ]
+
+                total_billable_days = total_working_days - len(holiday_weekdays)
+
+                output_list.append({"Group Name": group_name, "Full Name": full_name, "Month": month_name, "Year": year,
+                    "Leave Taken Days": len(dates_sorted), "Dates of Leave": dates_str, "Total Billable Days":
+                                        total_billable_days,
+                    "Total Working Days": total_working_days, "Holidays": holidays_this_month if holidays_this_month else
+                    None})
+
+        # Save to JSON
+        with open("leave_summary.json", "w") as f:
+            json.dump(output_list, f, indent=4)
+        return output_list
+
+    # def show_dashboard(self, summary_df, table_name, db_col, sheet_col, df,):
+    #
+    #     # --- Create Dash app ---
+    #     dash_app = dash.Dash(__name__)
+    #
+    #     # Pie chart: Match vs Unmatched
+    #     pie_fig = px.pie(summary_df.groupby('Status').size().reset_index(name='Count'), names='Status', values='Count',
+    #         title='Matches vs Unmatched')
+    #
+    #     # Bar chart: Coverage scores
+    #     bar_fig = px.bar(summary_df, x='Sheet Value', y='Score', color='Status', title='Coverage Scores')
+    #
+    #     dash_app.layout = html.Div(
+    #         [html.H1("Column Mapping Dashboard", style={'textAlign': 'center'}), dcc.Graph(figure=pie_fig),
+    #             dcc.Graph(figure=bar_fig)])
+    #
+    #     # --- Run Dash in a separate thread ---
+    #     def run_dash():
+    #         dash_app.run(port=8050, debug=False, use_reloader=False)
+    #
+    #     thread = threading.Thread(target=run_dash)
+    #     thread.daemon = True
+    #     thread.start()
+    #
+    #     # --- PyQt5 Dialog ---
+    #     app = QApplication.instance() or QApplication(sys.argv)
+    #     dialog = QDialog()
+    #     dialog.setWindowTitle("Mapping Dashboard")
+    #     dialog.resize(900, 700)
+    #
+    #     layout = QVBoxLayout(dialog)
+    #
+    #     web_view = QWebEngineView()
+    #     web_view.setUrl(QUrl("http://127.0.0.1:8050"))
+    #     layout.addWidget(web_view)
+    #
+    #     dialog.setLayout(layout)
+    #     dialog.exec()  # modal dialog; blocks until closed
 
     def handle_save_to_db(self):
         # Logic to save the table to database
@@ -2106,61 +2210,7 @@ class MainWindow(QMainWindow):
         except:
             pass  # If even this fails, just leave it empty
 
-    # def setup_filter_row(self, columns):
-    #     filter_container = QWidget()
-    #     filter_layout = QGridLayout(filter_container)
-    #     filter_layout.setContentsMargins(12, 8, 12, 8)
-    #     filter_layout.setSpacing(6)
-    #
-    #     filter_label = QLabel("🔍 Filters:")
-    #     filter_label.setStyleSheet("font-weight: bold; font-size: 12px; color: #424242;")
-    #     filter_layout.addWidget(filter_label, 0, 0, 1, len(columns))
-    #
-    #     self.filter_excel_inputs = []
-    #     for col_idx, col_name in enumerate(columns):
-    #         input_box = QLineEdit()
-    #         input_box.setPlaceholderText(col_name)
-    #         input_box.setStyleSheet("""
-    #             QLineEdit {
-    #                 border: 2px solid #e0e0e0;
-    #                 border-radius: 6px;
-    #                 padding: 6px;
-    #                 font-size: 11px;
-    #             }
-    #             QLineEdit:focus {
-    #                 border-color: #1976d2;
-    #                 background-color: #fafafa;
-    #             }
-    #         """)
-    #         input_box.textChanged.connect(self.apply_spreadsheet_filters)
-    #         self.filter_excel_inputs.append(input_box)
-    #         filter_layout.addWidget(input_box, 1, col_idx)
-    #
-    #     if hasattr(self, 'filter_layout'):
-    #         self.filter_layout.addWidget(filter_container)
-    #
-    # def apply_spreadsheet_filters(self):
-    #     """Filter the table based on values typed into the filter input fields."""
-    #     try:
-    #         for row in range(self.excel_table_view.rowCount()):
-    #             self.excel_table_view.setRowHidden(row, False)
-    #
-    #         for col_idx, filter_input in enumerate(self.filter_excel_inputs):
-    #             filter_text = filter_input.text().strip().lower()
-    #             if not filter_text:
-    #                 continue
-    #
-    #             for row in range(self.excel_table_view.rowCount()):
-    #                 item = self.excel_table_view.item(row, col_idx)
-    #                 if item is None:
-    #                     continue
-    #
-    #                 cell_text = item.text().strip().lower()
-    #                 if filter_text not in cell_text:
-    #                     self.excel_table_view.setRowHidden(row, True)
-    #
-    #     except Exception as e:
-    #         QMessageBox.warning(self, "Filter Error", f"An error occurred while filtering:\n{str(e)}")
+
     def sanitize_column_name(self, col):
         if not isinstance(col, str):
             col = str(col)
