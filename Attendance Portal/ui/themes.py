@@ -27,6 +27,17 @@ QFrame#sidebar {
     background-color: #13151f;
     border-right: 1px solid rgba(255,255,255,0.06);
 }
+QLabel#app_name_lbl {
+    color: #ffffff;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+QLabel#ver_lbl {
+    color: rgba(148,163,184,0.7);
+    font-size: 10px;
+    font-weight: 400;
+}
 
 /* ── Nav buttons ────────────────────────────────────────────────── */
 QPushButton#nav_btn {
@@ -339,9 +350,19 @@ QWidget {
 
 /* ── Sidebar ────────────────────────────────────────────────────── */
 QFrame#sidebar {
-    background: qlineargradient(x1:0, y1:0, x2:0, y2:1,
-                    stop:0 #1e293b, stop:1 #0f172a);
-    border-right: none;
+    background-color: #f8fafc;
+    border-right: 1px solid #e2e8f0;
+}
+QLabel#app_name_lbl {
+    color: #0f172a;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+}
+QLabel#ver_lbl {
+    color: #64748b;
+    font-size: 10px;
+    font-weight: 400;
 }
 
 /* ── Nav buttons ────────────────────────────────────────────────── */
@@ -352,17 +373,17 @@ QPushButton#nav_btn {
     border: none;
     font-size: 13px;
     font-weight: 500;
-    color: #94a3b8;
+    color: #64748b;
     background-color: transparent;
 }
 QPushButton#nav_btn:hover {
-    background-color: rgba(255,255,255,0.08);
-    color: #f1f5f9;
+    background-color: #e2e8f0;
+    color: #0f172a;
 }
 QPushButton#nav_btn:checked {
     background: qlineargradient(x1:0, y1:0, x2:1, y2:0,
                     stop:0 #00c9a7, stop:1 #00a88e);
-    color: #0f172a;
+    color: #ffffff;
     font-weight: 700;
 }
 
@@ -587,3 +608,14 @@ QLabel#statusMsg[messageType="info"] {
     padding: 10px 14px;
 }
 """
+
+OCEAN_THEME = DARK_THEME.replace("#0f1117", "#0f172a").replace("#13151f", "#1e293b").replace("#1a1d27", "#334155").replace("#1e2130", "#475569").replace("#00c9a7", "#38bdf8").replace("#00a88e", "#0ea5e9").replace("#845ec2", "#818cf8")
+
+LATTE_THEME = LIGHT_THEME.replace("#f0f4f8", "#faf9f6").replace("#1e293b", "#433e3c").replace("#0f172a", "#2c2826").replace("#00c9a7", "#c29976").replace("#00a88e", "#a88160").replace("#e2e8f0", "#e8e4e0").replace("#f8fafc", "#f3efe9").replace("#64748b", "#78716c")
+
+THEME_REGISTRY = {
+    "🌙 Midnight Dark": DARK_THEME,
+    "☀️ Pristine Light": LIGHT_THEME,
+    "🌊 Ocean Breeze": OCEAN_THEME,
+    "🍂 Soft Latte": LATTE_THEME,
+}

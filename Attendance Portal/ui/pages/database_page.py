@@ -70,6 +70,7 @@ def create_database_page(window) -> QWidget:
     window.table_view.horizontalHeader().setStretchLastSection(False)
     window.table_view.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
     window.table_view.verticalHeader().setVisible(False)
+    window.table_view.verticalHeader().setDefaultSectionSize(45)
     window.table_view.setStyleSheet("""
         QTableWidget { background:#fff; border:1px solid #ddd; font-size:11px; }
         QHeaderView::section { background:#f8f9fa; color:#495057; font-weight:bold; padding:8px; border:1px solid #dee2e6; }
@@ -119,7 +120,7 @@ def show_table_contents(window, table_name: str):
         window.table_view.setColumnCount(len(columns) + 1)
         window.table_view.setHorizontalHeaderLabels(columns + ["Actions"])
 
-        action_column_width = 120
+        action_column_width = 170
         window.table_view.horizontalHeader().setSectionResizeMode(
             len(columns), QHeaderView.ResizeMode.Fixed
         )
@@ -138,11 +139,11 @@ def show_table_contents(window, table_name: str):
             action_widget = _QW()
             action_widget.setStyleSheet("background:transparent;")
             action_layout = _HL(action_widget)
-            action_layout.setContentsMargins(2, 2, 2, 2)
-            action_layout.setSpacing(4)
+            action_layout.setContentsMargins(6, 2, 12, 2)
+            action_layout.setSpacing(8)
 
             edit_btn = QPushButton("Edit")
-            edit_btn.setFixedSize(50, 28)
+            edit_btn.setFixedSize(60, 28)
             edit_btn.setToolTip("Edit Record")
             edit_btn.setStyleSheet(
                 "QPushButton{background:#FFB300;color:white;border:none;border-radius:14px;font-size:12px;}"
@@ -151,7 +152,7 @@ def show_table_contents(window, table_name: str):
             edit_btn.clicked.connect(lambda _, r=row, tn=table_name: open_edit_dialog(window, tn, r))
 
             del_btn = QPushButton("Delete")
-            del_btn.setFixedSize(60, 28)
+            del_btn.setFixedSize(70, 28)
             del_btn.setToolTip("Delete Record")
             del_btn.setStyleSheet(
                 "QPushButton{background:#D32F2F;color:white;border:none;border-radius:14px;font-size:12px;}"
@@ -201,14 +202,14 @@ def apply_filters(window):
 def open_edit_dialog(window, table_name: str, row_data):
     dialog = QDialog(window)
     dialog.setWindowTitle(f"Edit Record — {table_name}")
-    dialog.setMinimumSize(800, 600)
+    dialog.setMinimumSize(500, 450)
 
     main_layout = QVBoxLayout(dialog)
-    main_layout.setContentsMargins(30, 30, 30, 30)
-    main_layout.setSpacing(25)
+    main_layout.setContentsMargins(20, 20, 20, 20)
+    main_layout.setSpacing(15)
 
     hdr = QLabel(f"Editing Record in '{table_name}'")
-    hdr.setStyleSheet("font-size:20px;font-weight:bold;color:#2c3e50;padding-bottom:15px;border-bottom:2px solid #3498db;")
+    hdr.setStyleSheet("font-size:16px;font-weight:bold;padding-bottom:10px;border-bottom:2px solid #3498db;")
     main_layout.addWidget(hdr)
 
     cursor = window.db_connection.cursor()
@@ -220,26 +221,44 @@ def open_edit_dialog(window, table_name: str, row_data):
     scroll.setWidgetResizable(True)
     content = QWidget()
     form_layout = QVBoxLayout(content)
-    form_layout.setSpacing(30)
+    form_layout.setSpacing(15)
 
     input_fields = {}
     for col_name, value in zip(columns, row_data):
         container = QWidget()
         cl = QVBoxLayout(container)
-        cl.setSpacing(8)
+        cl.setSpacing(4)
         lbl = QLabel(col_name)
-        lbl.setStyleSheet("font-size:14px;font-weight:bold;color:#34495e;")
-        use_textedit = isinstance(value, str) and len(str(value)) > 50
-        field = QTextEdit() if use_textedit else QLineEdit()
-        if isinstance(field, QLineEdit):
-            field.setText(str(value))
-            field.setClearButtonEnabled(True)
+        lbl.setStyleSheet("font-size:12px;font-weight:bold;")
+        
+        is_date = "date" in col_name.lower()
+        if is_date:
+            from PyQt6.QtWidgets import QDateEdit
+            from PyQt6.QtCore import QDate, Qt
+            field = QDateEdit()
+            field.setCalendarPopup(True)
+            field.setDisplayFormat("yyyy-MM-dd")
+            if value:
+                qdate = QDate.fromString(str(value)[:10], Qt.DateFormat.ISODate)
+                if qdate.isValid():
+                    field.setDate(qdate)
+                else:
+                    field.setDate(QDate.currentDate())
+            else:
+                field.setDate(QDate.currentDate())
         else:
-            field.setPlainText(str(value))
+            use_textedit = isinstance(value, str) and len(str(value)) > 50
+            field = QTextEdit() if use_textedit else QLineEdit()
+            if isinstance(field, QLineEdit):
+                field.setText(str(value) if value is not None else "")
+                field.setClearButtonEnabled(True)
+            else:
+                field.setPlainText(str(value) if value is not None else "")
+                
         field.setStyleSheet(
-            "QLineEdit,QTextEdit{font-size:16px;padding:12px;border:2px solid #bdc3c7;"
-            "border-radius:6px;min-height:50px;}"
-            "QLineEdit:focus,QTextEdit:focus{border-color:#3498db;}"
+            "QLineEdit,QTextEdit,QDateEdit{font-size:13px;padding:8px;border:1px solid #bdc3c7;"
+            "border-radius:4px;min-height:30px;}"
+            "QLineEdit:focus,QTextEdit:focus,QDateEdit:focus{border-color:#3498db;}"
         )
         cl.addWidget(lbl)
         cl.addWidget(field)
@@ -253,16 +272,16 @@ def open_edit_dialog(window, table_name: str, row_data):
     btn_layout = QHBoxLayout(btn_container)
     save_btn = QPushButton(" Save Changes")
     save_btn.setStyleSheet(
-        "QPushButton{background:#27ae60;color:white;border:none;padding:15px 30px;"
-        "border-radius:6px;font-size:16px;min-width:150px;}"
+        "QPushButton{background:#27ae60;color:white;border:none;padding:8px 16px;"
+        "border-radius:6px;font-size:13px;min-width:100px;}"
         "QPushButton:hover{background:#219a52;}"
     )
     save_btn.clicked.connect(lambda: _save_edited_row(window, dialog, table_name, columns, row_data, input_fields))
 
     cancel_btn = QPushButton("Cancel")
     cancel_btn.setStyleSheet(
-        "QPushButton{background:#e74c3c;color:white;border:none;padding:15px 30px;"
-        "border-radius:6px;font-size:16px;min-width:150px;}"
+        "QPushButton{background:#e74c3c;color:white;border:none;padding:8px 16px;"
+        "border-radius:6px;font-size:13px;min-width:100px;}"
         "QPushButton:hover{background:#c0392b;}"
     )
     cancel_btn.clicked.connect(dialog.reject)
@@ -280,6 +299,8 @@ def _save_edited_row(window, dialog, table_name, columns, old_row_data, input_fi
         cursor = window.db_connection.cursor()
 
         def get_val(w):
+            from PyQt6.QtWidgets import QDateEdit
+            if isinstance(w, QDateEdit):  return w.date().toString("yyyy-MM-dd")
             if hasattr(w, 'text'):        return w.text()
             if hasattr(w, 'toPlainText'): return w.toPlainText()
             return str(w)

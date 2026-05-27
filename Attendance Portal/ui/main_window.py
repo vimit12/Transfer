@@ -3,14 +3,15 @@
 # ======================
 from PyQt6.QtWidgets import (
     QMainWindow, QWidget, QHBoxLayout, QVBoxLayout, QFrame,
-    QLabel, QPushButton, QStackedWidget, QSizePolicy, QSpacerItem
+    QLabel, QPushButton, QStackedWidget, QSizePolicy, QSpacerItem,
+    QComboBox
 )
 from PyQt6.QtCore import Qt, QThread, pyqtSignal, QTimer, QSize
 from PyQt6.QtGui import QFont, QIcon, QColor
 
 from config import APP_NAME, VERSION, DB_PATH
 from core.db import initialize_database
-from ui.themes import DARK_THEME, LIGHT_THEME
+from ui.themes import THEME_REGISTRY
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -106,7 +107,7 @@ class MainWindow(QMainWindow):
             self._build_about_page,
         ]
 
-        self.setStyleSheet(DARK_THEME)
+        self.setStyleSheet(THEME_REGISTRY["🌙 Midnight Dark"])
         self.switch_page(0)
 
     def _build_sidebar(self) -> QFrame:
@@ -126,19 +127,10 @@ class MainWindow(QMainWindow):
         brand_layout.setSpacing(2)
 
         app_name_lbl = QLabel("⚡ AttendanceBI")
-        app_name_lbl.setStyleSheet("""
-            color: #ffffff;
-            font-size: 16px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-        """)
+        app_name_lbl.setObjectName("app_name_lbl")
 
         ver_lbl = QLabel(f"v{VERSION}  •  Hitachi Digital")
-        ver_lbl.setStyleSheet("""
-            color: rgba(148,163,184,0.7);
-            font-size: 10px;
-            font-weight: 400;
-        """)
+        ver_lbl.setObjectName("ver_lbl")
 
         brand_layout.addWidget(app_name_lbl)
         brand_layout.addWidget(ver_lbl)
@@ -193,12 +185,14 @@ class MainWindow(QMainWindow):
         footer_layout = QVBoxLayout(footer)
         footer_layout.setContentsMargins(12, 10, 12, 10)
 
-        self.theme_btn = QPushButton("🌙  Switch to Light Mode")
-        self.theme_btn.setObjectName("theme_btn")
-        self.theme_btn.setFixedHeight(38)
-        self.theme_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.theme_btn.clicked.connect(self.cycle_theme)
-        footer_layout.addWidget(self.theme_btn)
+        self.theme_combo = QComboBox()
+        self.theme_combo.setObjectName("theme_combo")
+        self.theme_combo.setFixedHeight(38)
+        self.theme_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.theme_combo.addItems(list(THEME_REGISTRY.keys()))
+        self.theme_combo.currentTextChanged.connect(self._apply_selected_theme)
+        
+        footer_layout.addWidget(self.theme_combo)
         layout.addWidget(footer)
 
         return sidebar
@@ -250,17 +244,9 @@ class MainWindow(QMainWindow):
         return create_about_page()
 
     # ── Theme management ──────────────────────────────────────────────────────
-    def cycle_theme(self):
-        self.current_theme_idx = (self.current_theme_idx + 1) % 2
-        self._apply_theme()
-
-    def _apply_theme(self):
-        if self.current_theme_idx == 0:
-            self.setStyleSheet(DARK_THEME)
-            self.theme_btn.setText("🌙  Switch to Light Mode")
-        else:
-            self.setStyleSheet(LIGHT_THEME)
-            self.theme_btn.setText("☀️  Switch to Dark Mode")
+    def _apply_selected_theme(self, theme_name: str):
+        theme_css = THEME_REGISTRY.get(theme_name, THEME_REGISTRY["🌙 Midnight Dark"])
+        self.setStyleSheet(theme_css)
 
     # ── Public helpers ────────────────────────────────────────────────────────
     def initialize_database(self):
