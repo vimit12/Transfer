@@ -107,7 +107,7 @@ class MainWindow(QMainWindow):
             self._build_about_page,
         ]
 
-        self.setStyleSheet(THEME_REGISTRY["🌙 Midnight Dark"])
+        self.setStyleSheet(THEME_REGISTRY["🍂 Soft Latte"])
         self.switch_page(0)
 
     def _build_sidebar(self) -> QFrame:
@@ -190,6 +190,7 @@ class MainWindow(QMainWindow):
         self.theme_combo.setFixedHeight(38)
         self.theme_combo.setCursor(Qt.CursorShape.PointingHandCursor)
         self.theme_combo.addItems(list(THEME_REGISTRY.keys()))
+        self.theme_combo.setCurrentText("🍂 Soft Latte")
         self.theme_combo.currentTextChanged.connect(self._apply_selected_theme)
         
         footer_layout.addWidget(self.theme_combo)

@@ -1,0 +1,3 @@
+([('billing_dashboard',
+   '/Users/vimit/Desktop/Practice/Transfer/dist/billing_dashboard',
+   'EXECUTABLE')],)
