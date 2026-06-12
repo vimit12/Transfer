@@ -9,6 +9,9 @@ from ui.main_window import MainWindow
 
 
 def main():
+    # Fix QtWebEngineWidgets requirement
+    import PyQt6.QtWebEngineWidgets
+    
     # High-DPI support
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough

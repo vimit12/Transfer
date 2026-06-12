@@ -350,8 +350,38 @@ def show_table_creation_form(window, headers: list, df):
         cb.currentIndexChanged.connect(check)
 
     def on_submit():
+        import pandas as pd
         table_name = table_name_input.text().strip()
         col_defs = {col: dropdowns[col].currentText() for col in headers}
+        
+        errors = []
+        for col, dtype in col_defs.items():
+            series = df[col].dropna()
+            if series.empty:
+                continue
+            
+            if dtype == "INTEGER":
+                try:
+                    converted = pd.to_numeric(series)
+                    if not (converted % 1 == 0).all():
+                        errors.append(f"Column '{col}' contains decimal values, expected INTEGER.")
+                except Exception:
+                    errors.append(f"Column '{col}' contains invalid data for INTEGER.")
+            elif dtype == "REAL":
+                try:
+                    pd.to_numeric(series)
+                except Exception:
+                    errors.append(f"Column '{col}' contains invalid data for REAL.")
+            elif dtype == "DATE":
+                try:
+                    pd.to_datetime(series, errors='raise')
+                except Exception:
+                    errors.append(f"Column '{col}' contains invalid data for DATE.")
+                    
+        if errors:
+            QMessageBox.critical(dialog, "Type Mismatch", "Data type validation failed:\n\n• " + "\n• ".join(errors))
+            return
+
         _create_and_show_table(window, table_name, col_defs, df)
         dialog.accept()
 
@@ -386,7 +416,7 @@ def _create_and_show_table(window, table_name, column_defs, df):
         window.excel_table_view.clearContents()
         window.excel_table_view.setRowCount(num_rows)
         window.excel_table_view.setColumnCount(num_cols)
-        window.excel_table_view.setHorizontalHeaderLabels(columns)
+        window.excel_table_view.setHorizontalHeaderLabels([str(c) for c in columns])
         _configure_table(window)
         _populate_table(window, df, num_rows, num_cols)
     finally:

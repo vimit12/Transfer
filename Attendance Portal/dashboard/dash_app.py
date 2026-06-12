@@ -155,12 +155,12 @@ def show_dashboard(output_list: list) -> None:
                     dbc.Col([dbc.Button("Download CSV", id="download-consolidated-csv-btn",
                                         color="success", className="mt-4 w-100"),
                              dcc.Download(id="download-consolidated-csv")], width=2),
-                ], align="center")])])], className="mb-3")], width=12)]),
+                ], align="center")])])], className="mb-3", width=12)]),
                 dbc.Row([dbc.Col([dbc.Card([dbc.CardBody([
                     html.Div(id="consolidated-table-container")])
                 ])], width=12)]),
-            ]),
-        ])])], className="shadow"),
+            ])]),
+        ])])], className="shadow")
 
     # ── Hidden stores for PNG export (appended after layout) ─────────────
     _store_ids = [
