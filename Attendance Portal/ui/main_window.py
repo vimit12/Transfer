@@ -43,6 +43,7 @@ class MainWindow(QMainWindow):
         self.all_tables_name: list = []
         self.current_table: str = ""
         self.current_theme_idx: int = 0
+        self.app_settings: dict = {}
 
         # Home-page data
         self.df = None
@@ -60,7 +61,7 @@ class MainWindow(QMainWindow):
         self.column_defs = {}
 
         # Lazy page tracking
-        self._page_built = [False] * 5
+        self._page_built = [False] * 6
         self._page_factories = []
 
         self.init_ui()
@@ -75,6 +76,9 @@ class MainWindow(QMainWindow):
     def _on_db_ready(self, conn, tables):
         self.db_connection = conn
         self.all_tables_name = tables
+        from core.db import get_settings
+        self.app_settings = get_settings(conn)
+        
         if hasattr(self, 'db_table_combo') and tables:
             self.db_table_combo.clear()
             self.db_table_combo.addItems(tables)
@@ -93,7 +97,7 @@ class MainWindow(QMainWindow):
         # ── Main content area ─────────────────────────────────────────────────
         self.stacked = QStackedWidget()
         self.stacked.setContentsMargins(0, 0, 0, 0)
-        for _ in range(5):
+        for _ in range(6):
             self.stacked.addWidget(QWidget())
 
         root_layout.addWidget(sidebar)
@@ -105,6 +109,7 @@ class MainWindow(QMainWindow):
             self._build_load_data_page,
             self._build_spreadsheet_page,
             self._build_about_page,
+            self._build_settings_page,
         ]
 
         self.setStyleSheet(THEME_REGISTRY["🍂 Soft Latte"])
@@ -150,6 +155,7 @@ class MainWindow(QMainWindow):
             ("📥", "Load Dataset",  2),
             ("📊", "Spreadsheet",   3),
             ("ℹ️", "About",         4),
+            ("⚙️", "Settings",      5),
         ]
         self.nav_buttons: list[QPushButton] = []
 
@@ -243,6 +249,10 @@ class MainWindow(QMainWindow):
     def _build_about_page(self) -> QWidget:
         from ui.pages.about_page import create_about_page
         return create_about_page()
+
+    def _build_settings_page(self) -> QWidget:
+        from ui.pages.settings_page import create_settings_page
+        return create_settings_page(self)
 
     # ── Theme management ──────────────────────────────────────────────────────
     def _apply_selected_theme(self, theme_name: str):

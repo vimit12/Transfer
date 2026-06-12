@@ -86,6 +86,24 @@ def create_spreadsheet_page(window) -> QWidget:
     return page
 
 
+def _clean_dataframe(df):
+    """Automatically clean dataframe by stripping spaces and standardizing dates."""
+    df.dropna(how='all', inplace=True)
+    df.dropna(axis=1, how='all', inplace=True)
+    df.columns = [str(c).strip() for c in df.columns]
+    
+    for col in df.select_dtypes(['object']).columns:
+        df[col] = df[col].apply(lambda x: x.strip() if isinstance(x, str) else x)
+        
+    for col in df.columns:
+        if 'date' in str(col).lower():
+            try:
+                # Attempt to parse and format dates; ignore errors
+                df[col] = pd.to_datetime(df[col], errors='ignore').dt.strftime('%Y-%m-%d')
+            except Exception:
+                pass
+    return df
+
 def handle_custom_file_upload(window):
     file_path, _ = QFileDialog.getOpenFileName(
         window, "Select Excel or CSV File", "",
@@ -95,6 +113,12 @@ def handle_custom_file_upload(window):
         return
     try:
         df = pd.read_csv(file_path) if file_path.endswith(".csv") else pd.read_excel(file_path)
+        
+        # Automated Data Cleaning
+        if getattr(window, "app_settings", {}).get("auto_clean", "True") == "True":
+            df = _clean_dataframe(df)
+            QMessageBox.information(window, "Automated Cleaning", "✨ Your dataset has been automatically cleaned (spaces stripped, dates standardized).")
+
         result = _validate_schema(df, file_path)
 
         msg = QMessageBox(window)
@@ -296,7 +320,7 @@ def _run_analyze_df(window, df):
                 "Holidays": holidays_month or None,
             })
 
-    show_dashboard(output_list)
+    show_dashboard(output_list, getattr(window, "app_settings", {}))
 
 
 def show_table_creation_form(window, headers: list, df):

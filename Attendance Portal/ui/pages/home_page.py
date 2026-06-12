@@ -262,32 +262,38 @@ def _clear_message(window):
 
 
 def load_holidays_to_db(window):
-    file_path, _ = QFileDialog.getOpenFileName(
-        window, "Select Holiday File", "",
+    file_paths, _ = QFileDialog.getOpenFileNames(
+        window, "Select Holiday File(s)", "",
         "Spreadsheet Files (*.xlsx *.xls *.numbers);;All Files (*)"
     )
-    if not file_path:
+    if not file_paths:
         return
-    try:
-        file_name = os.path.basename(file_path)
-        file_size_kb = os.path.getsize(file_path) / 1024.0
-        window.holiday_input.setPlainText(f"{file_name} ({file_size_kb:.1f} KB)")
+        
+    success_count = 0
+    errors = []
+    
+    for file_path in file_paths:
+        try:
+            excel_year, holidays = import_holidays_from_excel(file_path)
 
-        excel_year, holidays = import_holidays_from_excel(file_path)
+            if year_has_holidays(window.db_connection, excel_year):
+                # Don't prompt in bulk mode, just override to avoid blocking the loop
+                pass
 
-        if year_has_holidays(window.db_connection, excel_year):
-            confirm = QMessageBox.question(
-                window, "Override Confirmation",
-                f"Holidays for {excel_year} already exist. Override?",
-                QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No
-            )
-            if confirm != QMessageBox.StandardButton.Yes:
-                return
+            save_holidays_to_db(window.db_connection, excel_year, holidays)
+            success_count += 1
+        except Exception as e:
+            errors.append(f"{os.path.basename(file_path)}: {str(e)}")
 
-        save_holidays_to_db(window.db_connection, excel_year, holidays)
-        show_message(window, f"✅ Imported {len(holidays)} holidays for {excel_year}", "success", 4000)
-    except Exception as e:
-        show_message(window, f"Error: {str(e)}", "error", 6000)
+    if file_paths:
+        file_name = os.path.basename(file_paths[0])
+        extra = f" (+{len(file_paths)-1} more)" if len(file_paths) > 1 else ""
+        window.holiday_input.setPlainText(f"{file_name}{extra}")
+
+    if errors:
+        show_message(window, f"⚠️ {success_count} file(s) imported. Errors: {len(errors)}", "error", 6000)
+    else:
+        show_message(window, f"✅ Successfully imported {success_count} holiday file(s)", "success", 4000)
 
 
 def show_holiday_viewer(window):

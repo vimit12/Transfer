@@ -149,21 +149,33 @@ def open_resource_popup(window) -> None:
 
 
 def _choose_resource_file(window, parent_dialog) -> None:
-    file_path, _ = QFileDialog.getOpenFileName(
-        window, "Select File", "", "CSV/Excel Files (*.csv *.xlsx *.xls)"
+    file_paths, _ = QFileDialog.getOpenFileNames(
+        window, "Select File(s)", "", "CSV/Excel Files (*.csv *.xlsx *.xls)"
     )
-    if not file_path:
+    if not file_paths:
         return
-    try:
-        if file_path.endswith(".csv"):
-            df = pd.read_csv(file_path)
-        else:
-            from config import RESOURCE_SHEET_NAME
-            df = pd.read_excel(file_path, sheet_name=RESOURCE_SHEET_NAME)
+        
+    success_count = 0
+    errors = []
+    
+    for file_path in file_paths:
+        try:
+            if file_path.endswith(".csv"):
+                df = pd.read_csv(file_path)
+            else:
+                from config import RESOURCE_SHEET_NAME
+                df = pd.read_excel(file_path, sheet_name=RESOURCE_SHEET_NAME)
 
-        from core.db import add_data_resource_tab
-        add_data_resource_tab(window.db_connection, df)
-        QMessageBox.information(window, "Success", "✅ Resource mapping uploaded successfully!")
-    except Exception as e:
-        QMessageBox.critical(window, "Error", f"Failed to import file:\n{str(e)}")
+            from core.db import add_data_resource_tab
+            add_data_resource_tab(window.db_connection, df)
+            success_count += 1
+        except Exception as e:
+            errors.append(f"{file_path.split('/')[-1]}: {str(e)}")
+            
+    if errors:
+        QMessageBox.warning(window, "Partial Success", 
+                          f"✅ {success_count} file(s) processed.\n\n❌ Errors:\n" + "\n".join(errors))
+    else:
+        QMessageBox.information(window, "Success", f"✅ {success_count} resource mapping(s) uploaded successfully!")
+        
     parent_dialog.close()

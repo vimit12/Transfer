@@ -23,7 +23,7 @@ DASH_HOST = "127.0.0.1"
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def show_dashboard(output_list: list) -> None:
+def show_dashboard(output_list: list, app_settings: dict = None) -> None:
     """
     Entry point called from the UI.
     Builds (or updates) the Dash app, starts the server thread if needed,
@@ -147,10 +147,10 @@ def show_dashboard(output_list: list) -> None:
                                           options=[
                                               {"label": "Total Working Days", "value": "Total Working Days"},
                                               {"label": "Total Billable Days", "value": "Total Billable Days"},
-                                          ], value="Total Working Days", clearable=False)], width=2),
+                                          ], value=app_settings.get("default_calc_base", "Total Working Days") if app_settings else "Total Working Days", clearable=False)], width=2),
                     dbc.Col([dbc.Label("Attendance Threshold (%)"),
                              dcc.Slider(id="consolidated-threshold-slider", min=50, max=100,
-                                        step=1, value=90, marks={x: str(x) for x in range(50, 101, 10)},
+                                        step=1, value=int(app_settings.get("default_threshold", 90)) if app_settings else 90, marks={x: str(x) for x in range(50, 101, 10)},
                                         tooltip={"placement": "bottom", "always_visible": True})], width=4),
                     dbc.Col([dbc.Button("Download CSV", id="download-consolidated-csv-btn",
                                         color="success", className="mt-4 w-100"),
