@@ -29,5 +29,10 @@ Rsname,Billabletime,Ptohrs,BillRate,"Fri,
 28-May","Fri,
 29-May","Sat,
 30-May","Sun,
+<<<<<<< HEAD
 31-May",Total
 Hema Bharathi Janapaneni,144,0,3328,0,0,0,8,8,8,8,8,0,0,8,0,8,8,8,0,0,8,8,8,8,8,0,0,8,8,0,8,8,0,0,479232
+=======
+31-May",Total
+Hema Bharathi Janapaneni,144,0,3328,0,0,0,8,8,8,8,8,0,0,8,0,8,8,8,0,0,8,8,8,8,8,0,0,8,8,0,8,8,0,0,479232
+>>>>>>> 6bf90b29a0e09de717b50337a23b04e5cd09d0cc

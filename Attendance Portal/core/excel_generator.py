@@ -62,12 +62,12 @@ def generate_excel(month, year, output_file_name, selected_row, holiday_list,
             if start_date:
                 sd, sm, sy = date_calculation(start_date)
                 sm = f"{sm:02}" if sm < 10 else sm
-                sm_flag = sm == month_number
+                sm_flag = sm == month_number and sy == year  # ← also check year
 
             if end_date:
                 ed, em, ey = date_calculation(end_date)
                 em = f"{em:02}" if em < 10 else em
-                em_flag = em == month_number
+                em_flag = em == month_number and ey == year  # ← also check year
 
             for week in month_details:
                 for day in week:
